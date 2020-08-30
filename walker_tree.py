@@ -1,16 +1,19 @@
 """
-Python implementation of Walker tree node positioning algorithm.
+Python implementation based on John Q. Walker II's node-positioning
+algorithm for general trees with some adjustments and additional methods.
+
 http://www.cs.unc.edu/techreports/89-034.pdf
 """
-
-import logging
+from collections import namedtuple
+import exceptions
 import math
-
+import logging
 from typing import Optional
 
-import exceptions
-
 log = logging.getLogger(__name__)
+
+# Point is used to represent the position for a given node
+Point = namedtuple("Point", "x y")
 
 
 class WalkerTree:
@@ -101,8 +104,7 @@ class WalkerTree:
             self.left_neighbor = None
 
             # Position coordinates of the node
-            self.x = 0
-            self.y = 0
+            self.point = Point(0, 0)
 
             # Stored values upon building the tree
             # The ID for the node must be a string to account for non-numeric IDs
@@ -129,13 +131,12 @@ class WalkerTree:
 
         def __str__(self):
             left_neighbor_id = self.left_neighbor and self.left_neighbor.id
-            return "id: {}, left_neighbor: {}, x: {}, y: {}, prelim: {}, modifier: {}".format(
-                self.id, left_neighbor_id, self.x, self.y, self.prelim, self.modifier,
+            return "id: {}, left_neighbor: {}, point: {}, prelim: {}, modifier: {}".format(
+                self.id, left_neighbor_id, self.point, self.prelim, self.modifier,
             )
 
     def _get_leftmost(self, node, level, depth) -> Optional[_Node]:
-        """
-        This function returns the leftmost descendant of a node at a given depth.
+        """This function returns the leftmost descendant of a node at a given depth.
         This uses a postorder walk of the subtree under node, down to the level of depth.
         'level' here is not the absolute tree level but the level below the node whose
         leftmost descendant is being found.
@@ -145,17 +146,16 @@ class WalkerTree:
         elif node.is_leaf:
             return None
         else:
-            right_most = self.get_node(node.first_child)
+            right_most = self._get_node(node.first_child)
             left_most = self._get_leftmost(right_most, level + 1, depth)
             # Do a postorder walk of the subtree below node
             while left_most and right_most.has_right_sibling():
-                right_most = self.get_node(right_most.right_sibling)
+                right_most = self._get_node(right_most.right_sibling)
                 left_most = self._get_leftmost(right_most, level + 1, depth)
             return left_most
 
     def _apportion(self, node, level):
-        """
-        Cleans up the positioning of small sibling subtrees.
+        """Cleans up the positioning of small sibling subtrees.
         When moving a new subtree farther and farther to the right,
         gaps may open up among smaller subtrees that were previously
         sandwiched between larger subtrees. Thus, when moving the new,
@@ -163,7 +163,7 @@ class WalkerTree:
         apportioned to smaller, interior subtrees, creating a pleasing
         aesthetic placement.
         """
-        left_most = self.get_node(node.first_child)
+        left_most = self._get_node(node.first_child)
         neighbor = left_most.left_neighbor
         compare_depth = 1
         depth_to_stop = self.max_depth - level
@@ -175,8 +175,8 @@ class WalkerTree:
             ancestor_left_most = left_most
             ancestor_neighbor = neighbor
             for i in range(compare_depth):
-                ancestor_left_most = self.get_node(ancestor_left_most.parent)
-                ancestor_neighbor = self.get_node(ancestor_neighbor.parent)
+                ancestor_left_most = self._get_node(ancestor_left_most.parent)
+                ancestor_neighbor = self._get_node(ancestor_neighbor.parent)
                 right_mod_sum += ancestor_left_most.modifier
                 left_mod_sum += ancestor_neighbor.modifier
             # Find the move distance and apply it to node's sub-tree
@@ -190,7 +190,7 @@ class WalkerTree:
                 left_siblings = 0
                 while tmp and tmp != ancestor_neighbor:
                     left_siblings += 1
-                    tmp = self.get_node(tmp.left_sibling)
+                    tmp = self._get_node(tmp.left_sibling)
                 if tmp:
                     # Apply portions to appropriate left sibling sub-trees
                     portion = move_distance / left_siblings
@@ -199,7 +199,7 @@ class WalkerTree:
                         tmp.prelim += move_distance
                         tmp.modifier += move_distance
                         move_distance -= portion
-                        tmp = self.get_node(tmp.left_sibling)
+                        tmp = self._get_node(tmp.left_sibling)
                 else:
                     # No need to move anything
                     # Needs to be done by an ancestor b/c ancestor neighbor and leftmost are not siblings
@@ -211,7 +211,7 @@ class WalkerTree:
             if left_most.is_leaf:
                 left_most = self._get_leftmost(node, 0, compare_depth)
             else:
-                left_most = self.get_node(left_most.first_child)
+                left_most = self._get_node(left_most.first_child)
 
     # Initialize the list of previous nodes at each level.
     def _init_prev_node_list(self):
@@ -268,8 +268,7 @@ class WalkerTree:
             i += 1
 
     def _check_extents_range(self, x, y):
-        """
-        Verifies that the passed x and y coordinates are within the coordinate system
+        """Verifies that the passed x and y coordinates are within the coordinate system
         being used for drawing (if boundaries are set during configuration).
         """
         if x < self.min_x or x > self.max_x:
@@ -282,8 +281,7 @@ class WalkerTree:
             )
 
     def _first_walk(self, node, level):
-        """
-        In this first postorder walk, every node of the tree is assigned a preliminary
+        """In this first postorder walk, every node of the tree is assigned a preliminary
         x-coordinate (node.prelim). In addition, internal nodes are given modifiers,
         which will be used to move their offspring to the right (node.modifier).
         """
@@ -297,28 +295,27 @@ class WalkerTree:
         if node.is_leaf or level == self.max_depth:
             if node.has_left_sibling():
                 # Determine the preliminary x-coordinate
-                node.prelim = self.get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
+                node.prelim = self._get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
             else:
                 # No sibling on left to worry about
                 node.prelim = 0
         else:
             # This node is not a leaf, so call this recursively for each of its offspring
-            left_most = right_most = self.get_node(node.first_child)
+            left_most = right_most = self._get_node(node.first_child)
             self._first_walk(left_most, level + 1)
             while right_most.has_right_sibling():
-                right_most = self.get_node(right_most.right_sibling)
+                right_most = self._get_node(right_most.right_sibling)
                 self._first_walk(right_most, level + 1)
             midpoint = (left_most.prelim + right_most.prelim) / 2
             if node.has_left_sibling():
-                node.prelim = self.get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
+                node.prelim = self._get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
                 node.modifier = node.prelim - midpoint
                 self._apportion(node, level)
             else:
                 node.prelim = midpoint
 
     def _second_walk(self, node, level, mod_sum):
-        """
-        During a second preorder walk, each node is given a final x-coordinate
+        """During a second preorder walk, each node is given a final x-coordinate
         by summing its preliminary x-coordinate and the modifiers of all the node's
         ancestors. The y-coordinate depends on the height of the tree. If the actual
         position of an interior node is right of its preliminary place, the subtree rooted
@@ -339,44 +336,20 @@ class WalkerTree:
         self._check_extents_range(x_tmp, y_tmp)
 
         log.debug("Second walk, node: {}".format(node))
-        node.x = x_tmp
-        node.y = y_tmp
+        node.point = Point(x_tmp, y_tmp)
         if node.has_child():
             # Apply the modifier value to all offspring
-            self._second_walk(self.get_node(node.first_child), level + 1, mod_sum + node.modifier)
+            self._second_walk(self._get_node(node.first_child), level + 1, mod_sum + node.modifier)
         if node.has_right_sibling():
-            self._second_walk(self.get_node(node.right_sibling), level, mod_sum)
+            self._second_walk(self._get_node(node.right_sibling), level, mod_sum)
         return
 
-    def get_node(self, node_id: str) -> Optional[_Node]:
+    def _get_node(self, node_id: str) -> Optional[_Node]:
         if not node_id:
             return None
         if node_id not in self._tree:
             raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
         return self._tree[node_id]
-
-    def add_node(
-        self,
-        node_id: str,
-        is_leaf: bool,
-        left_sibling: Optional[str],
-        right_sibling: Optional[str],
-        parent: Optional[str],
-        first_child: Optional[str],
-    ):
-        self._tree[node_id] = self._Node(
-            node_id=node_id,
-            is_leaf=is_leaf,
-            left_sibling=left_sibling,
-            right_sibling=right_sibling,
-            parent=parent,
-            first_child=first_child,
-        )
-
-    def remove_node(self, node_id):
-        if node_id not in self._tree:
-            raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
-        self._tree.pop(node_id)
 
     def _get_root_node(self):
         nodes_without_parent = []
@@ -389,30 +362,78 @@ class WalkerTree:
 
         return nodes_without_parent[0]
 
+    def add_node(
+        self,
+        node_id: str,
+        is_leaf: bool,
+        left_sibling: Optional[str],
+        right_sibling: Optional[str],
+        parent: Optional[str],
+        first_child: Optional[str],
+    ):
+        """This method adds a new node to the tree with the information necessary
+        to reposition everything accordingly.
+        Note: node positioning will not be updated until 'position_tree' is called.
+
+        Args:
+            node_id: unique string identifier of the node
+            is_leaf: boolean indicating whether this node is a leaf node i.e. does not have children
+            left_sibling: ID of the node (with same parent) immediately to the left of this node, if any
+            right_sibling: ID of the node (with same parent) immediately to the right of this node, if any
+            parent: ID of the parent node, if any
+            first_child: ID of the leftmost child of this node, if any
+        """
+        self._tree[node_id] = self._Node(
+            node_id=node_id,
+            is_leaf=is_leaf,
+            left_sibling=left_sibling,
+            right_sibling=right_sibling,
+            parent=parent,
+            first_child=first_child,
+        )
+
+    def remove_node(self, node_id: str):
+        """This method removes the node with the given ID from the tree.
+        Note: node positioning will not be updated until 'position_tree' is called.
+        """
+        if node_id not in self._tree:
+            raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
+        self._tree.pop(node_id)
+
     def position_tree(self):
-        """
-        This function determines the coordinates for each node in a tree.
-        A pointer to the apex node of the tree is passed as input.
-        This assumes that the x and y coordinates of the apex node are set as desired,
+        """This method determines the coordinates for each node in a tree.
+        This assumes that the x and y coordinates of the apex node are already set as desired,
         since the tree underneath it will be positioned with respect to those coordinates.
+
+        Tree repositioning is left decoupled from adding or removing nodes to allow for those actions
+        to be done in bulk without incurring the costs of repositioning.
         """
-        root_node = self._get_root_node()
-        if not root_node:
+        root = self._get_root_node()
+        if not root:
             raise exceptions.InvalidTree("no root node found")
 
         self._init_prev_node_list()
 
         # Set preliminary positioning with postorder walk
-        self._first_walk(root_node, 0)
+        self._first_walk(root, 0)
 
         # Adjust all nodes with respect to root
-        self._x_top_adj = root_node.x - root_node.prelim
-        self._y_top_adj = root_node.y
+        self._x_top_adj = root.point.x - root.prelim
+        self._y_top_adj = root.point.y
         log.debug("Adjustments: x_top_adj: {}, y_top_adj: {}".format(self._x_top_adj, self._y_top_adj))
 
         # Set final positioning with preorder walk
-        self._second_walk(root_node, 0, 0)
+        self._second_walk(root, 0, 0)
 
-        return
+    def get_position(self, node_id: str) -> Point:
+        """This method returns a Point(x, y) representation of the position for the given node.
+        Note: if nodes have been added or removed, the position will only be updated once 'position_tree'
+        is called. In other words, this call should come after a call to 'position_tree'.
 
-    # TODO - method for get_coordinates?
+        Example usage:
+        point = tree.get_position(node_id)
+        x_position = point.x
+        y_position = point.y
+        """
+        node = self._get_node(node_id)
+        return node.point

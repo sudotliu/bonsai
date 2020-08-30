@@ -27,5 +27,5 @@ t.position_tree()
 
 node_ids = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"]
 for node_id in node_ids:
-    node = t.get_node(node_id)
-    print("Node: {}, x: {}, y: {}".format(node.id, node.x, node.y))
+    point = t.get_position(node_id)
+    print("Node: {}, x: {}, y: {}".format(node_id, point.x, point.y))
