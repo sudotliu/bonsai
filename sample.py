@@ -1,12 +1,18 @@
 import logging
 
-import walker_tree as tree
+import walker_tree
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 # Configure tree
-t = tree.WalkerTree(sibling_separation=50, subtree_separation=100, level_separation=50, max_depth=100, node_size=300)
+t = walker_tree.WalkerTree(
+    sibling_separation=50,
+    subtree_separation=100,
+    level_separation=50,
+    max_depth=100,
+    node_size=300
+)
 t.add_node(node_id="A", is_leaf=True, left_sibling=None, right_sibling="D", parent="E", first_child=None)
 t.add_node(node_id="B", is_leaf=True, left_sibling=None, right_sibling="C", parent="D", first_child=None)
 t.add_node(node_id="C", is_leaf=True, left_sibling="B", right_sibling=None, parent="D", first_child=None)
