@@ -9,7 +9,7 @@ import math
 import logging
 from typing import Optional
 
-import exceptions
+from . import exceptions
 
 log = logging.getLogger(__name__)
 
