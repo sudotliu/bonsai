@@ -5,10 +5,11 @@ algorithm for general trees with some adjustments and additional methods.
 http://www.cs.unc.edu/techreports/89-034.pdf
 """
 from collections import namedtuple
-import exceptions
 import math
 import logging
 from typing import Optional
+
+from . import exceptions
 
 log = logging.getLogger(__name__)
 
