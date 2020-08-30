@@ -9,7 +9,7 @@ import math
 import logging
 from typing import Optional
 
-from . import exceptions
+from walker_tree import exceptions
 
 log = logging.getLogger(__name__)
 
