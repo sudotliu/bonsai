@@ -67,7 +67,7 @@ class WalkerTree:
 
         # Tree is represented internally as a map of Node ID to the Node object
         self._tree = {}
-        self._root_node_id: str = None
+        self._root_node_id = None
 
     def _validate_configuration(self):
         invalid_values = {}
@@ -425,7 +425,6 @@ class WalkerTree:
         Tree repositioning is left decoupled from adding or removing nodes to allow for those actions
         to be done in bulk without incurring the costs of repositioning.
         """
-        # Handle empty tree
         if len(self._tree) == 0:
             raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
 
@@ -456,5 +455,8 @@ class WalkerTree:
         x_position = point.x
         y_position = point.y
         """
+        if len(self._tree) == 0:
+            raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
+
         node = self._get_node(node_id)
         return node.point
