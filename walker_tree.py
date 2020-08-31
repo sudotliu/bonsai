@@ -7,7 +7,7 @@ http://www.cs.unc.edu/techreports/89-034.pdf
 from collections import namedtuple
 import math
 import logging
-from typing import Optional
+from typing import Optional, Set
 
 from walker_tree import exceptions
 
@@ -67,6 +67,7 @@ class WalkerTree:
 
         # Tree is represented internally as a map of Node ID to the Node object
         self._tree = {}
+        self._root_node_id: str = None
 
     def _validate_configuration(self):
         invalid_values = {}
@@ -87,7 +88,18 @@ class WalkerTree:
         if invalid_values:
             raise exceptions.InvalidTreeConfiguration("invalid values: {}".format(invalid_values))
 
-    class _Node:
+    class Node:
+        """Client-facing representation of a tree node used when populating the tree.
+
+        Args:
+            node_id: unique string identifier of the node
+            is_leaf: boolean indicating whether this node is a leaf node i.e. does not have children
+            left_sibling: ID of the node (with same parent) immediately to the left of this node, if any
+            right_sibling: ID of the node (with same parent) immediately to the right of this node, if any
+            parent: ID of the parent node, if any
+            first_child: ID of the leftmost child of this node, if any
+        """
+
         def __init__(
             self,
             node_id: str,
@@ -97,6 +109,19 @@ class WalkerTree:
             parent: Optional[str],
             first_child: Optional[str],
         ):
+            self.id = node_id
+            self.is_leaf = is_leaf
+            self.left_sibling = left_sibling
+            self.right_sibling = right_sibling
+            self.parent = parent
+            self.first_child = first_child
+
+    class _InternalNode(Node):
+        def __init__(self, node):
+            super().__init__(
+                node.id, node.is_leaf, node.left_sibling, node.right_sibling, node.parent, node.first_child
+            )
+
             # The current node's preliminary x-coordinate
             self.prelim = 0
             # The current node's modifier value
@@ -106,20 +131,6 @@ class WalkerTree:
 
             # Position coordinates of the node
             self.point = Point(0, 0)
-
-            # Stored values upon building the tree
-            # The ID for the node must be a string to account for non-numeric IDs
-            self.id = node_id
-            # Boolean indicating whether this node is a leaf node i.e. does not have children
-            self.is_leaf = is_leaf
-            # The ID of the node (with same parent) immediately to the left of this node, if any
-            self.left_sibling = left_sibling
-            # The ID of the node (with same parent) immediately to the right of this node, if any
-            self.right_sibling = right_sibling
-            # The ID of the parent node, if any
-            self.parent = parent
-            # The ID of the leftmost child of this node, if any
-            self.first_child = first_child
 
         def has_child(self):
             return not self.is_leaf
@@ -136,7 +147,7 @@ class WalkerTree:
                 self.id, left_neighbor_id, self.point, self.prelim, self.modifier,
             )
 
-    def _get_leftmost(self, node, level, depth) -> Optional[_Node]:
+    def _get_leftmost(self, node, level, depth) -> Optional[_InternalNode]:
         """This function returns the leftmost descendant of a node at a given depth.
         This uses a postorder walk of the subtree under node, down to the level of depth.
         'level' here is not the absolute tree level but the level below the node whose
@@ -234,7 +245,8 @@ class WalkerTree:
             i += 1
         return None
 
-    class NodeTracker:
+    # Internal class used to track previous progress
+    class _NodeTracker:
         def __init__(self, prev_node=None, next_level=None):
             self.prev_node = prev_node
             self.next_level = next_level
@@ -242,7 +254,7 @@ class WalkerTree:
     # Set an element in the list tracking previous nodes.
     def _set_prev_node(self, level, node):
         if not self._level_zero_ptr:
-            self._level_zero_ptr = self.NodeTracker()
+            self._level_zero_ptr = self._NodeTracker()
             self._level_zero_ptr.prev_node = node
             self._level_zero_ptr.next_level = None
             return
@@ -260,7 +272,7 @@ class WalkerTree:
                 # There isn't a list element yet at this level, so
                 # add one. The following instructions prepare the
                 # list element at the next level, not at this one.
-                new_node = self.NodeTracker()
+                new_node = self._NodeTracker()
                 new_node.prev_node = None
                 new_node.next_level = None
                 tmp.next_level = new_node
@@ -345,61 +357,65 @@ class WalkerTree:
             self._second_walk(self._get_node(node.right_sibling), level, mod_sum)
         return
 
-    def _get_node(self, node_id: str) -> Optional[_Node]:
+    def _get_node(self, node_id: str) -> Optional[_InternalNode]:
         if not node_id:
             return None
         if node_id not in self._tree:
             raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
         return self._tree[node_id]
 
-    def _get_root_node(self):
-        nodes_without_parent = []
-        for node in self._tree.values():
+    def _validate_tree(self):
+        no_parent_node_ids = []
+        for node_id, node in self._tree.items():
+            if node.is_leaf and (node.first_child or node.has_child()):
+                raise exceptions.InvalidTree("leaf node cannot also have child: {}".format(node.id))
+            if node.has_child() and not node.first_child:
+                raise exceptions.InvalidTree("parent node must have child: {}".format(node.id))
             if node.parent is None:
-                nodes_without_parent.append(node)
-        if len(nodes_without_parent) != 1:
-            node_ids = [n.id for n in nodes_without_parent]
-            raise exceptions.InvalidTree("more than one node without parent: {}".format(node_ids))
+                no_parent_node_ids.append(node.id)
 
-        return nodes_without_parent[0]
+            # Ensure all IDs exist in tree
+            if node.id not in self._tree:
+                raise exceptions.InvalidTree("node ID not in tree: {}".format(node.id))
+            if node.parent and node.parent not in self._tree:
+                raise exceptions.InvalidTree("parent ID not in tree for node: {}".format(node.id))
+            if node.left_sibling and node.left_sibling not in self._tree:
+                raise exceptions.InvalidTree("left sibling ID not in tree for node: {}".format(node.id))
+            if node.right_sibling and node.right_sibling not in self._tree:
+                raise exceptions.InvalidTree("right sibling ID not in tree for node: {}".format(node.id))
+            if node.first_child and node.first_child not in self._tree:
+                raise exceptions.InvalidTree("first child ID not in tree for node: {}".format(node.id))
 
-    def add_node(
-        self,
-        node_id: str,
-        is_leaf: bool,
-        left_sibling: Optional[str],
-        right_sibling: Optional[str],
-        parent: Optional[str],
-        first_child: Optional[str],
-    ):
-        """This method adds a new node to the tree with the information necessary
-        to reposition everything accordingly.
-        Note: node positioning will not be updated until 'position_tree' is called.
+            # Ensure siblings are consistent
+            if node.has_left_sibling():
+                left_sibling = self._tree[node.left_sibling]
+                if left_sibling.right_sibling != node.id:
+                    raise exceptions.InvalidTree("left sibling discrepancy: {}".format(node.id))
+            if node.has_right_sibling():
+                right_sibling = self._tree[node.right_sibling]
+                if right_sibling.left_sibling != node.id:
+                    raise exceptions.InvalidTree("right sibling discrepancy: {}".format(node.id))
 
-        Args:
-            node_id: unique string identifier of the node
-            is_leaf: boolean indicating whether this node is a leaf node i.e. does not have children
-            left_sibling: ID of the node (with same parent) immediately to the left of this node, if any
-            right_sibling: ID of the node (with same parent) immediately to the right of this node, if any
-            parent: ID of the parent node, if any
-            first_child: ID of the leftmost child of this node, if any
+            # Ensure parent child is consistent
+            if node.has_child():
+                first_child = self._tree[node.first_child]
+                if first_child.parent != node.id:
+                    raise exceptions.InvalidTree("first child discrepancy: {}".format(node.id))
+
+        # Ensure only one root node is missing parent and set parent if valid
+        if len(no_parent_node_ids) != 1:
+            raise exceptions.InvalidTree("invalid number of nodes with no parent: {}".format(no_parent_node_ids))
+        else:
+            self._root_node_id = no_parent_node_ids[0]
+
+    def populate_tree(self, nodes: Set[Node]):
+        """This method populates the tree with the given set of nodes.
+        Note: this merely establishes the set of nodes to process and validates the tree state.
+        Node positions will not be updated until 'position_tree' is called.
         """
-        self._tree[node_id] = self._Node(
-            node_id=node_id,
-            is_leaf=is_leaf,
-            left_sibling=left_sibling,
-            right_sibling=right_sibling,
-            parent=parent,
-            first_child=first_child,
-        )
-
-    def remove_node(self, node_id: str):
-        """This method removes the node with the given ID from the tree.
-        Note: node positioning will not be updated until 'position_tree' is called.
-        """
-        if node_id not in self._tree:
-            raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
-        self._tree.pop(node_id)
+        for node in nodes:
+            self._tree[node.id] = self._InternalNode(node)
+        self._validate_tree()
 
     def position_tree(self):
         """This method determines the coordinates for each node in a tree.
@@ -409,7 +425,11 @@ class WalkerTree:
         Tree repositioning is left decoupled from adding or removing nodes to allow for those actions
         to be done in bulk without incurring the costs of repositioning.
         """
-        root = self._get_root_node()
+        # Handle empty tree
+        if len(self._tree) == 0:
+            raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
+
+        root = self._get_node(self._root_node_id)
         if not root:
             raise exceptions.InvalidTree("no root node found")
 
