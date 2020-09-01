@@ -3,6 +3,12 @@ Python implementation based on John Q. Walker II's node-positioning
 algorithm for general trees with some adjustments and additional methods.
 
 http://www.cs.unc.edu/techreports/89-034.pdf
+
+NB: there are select comments marked with NB (nota bene), which call to attention
+parts of the algorithm that differ from the original specification because the original
+specification appears to be wrong in those places. The changes made in these parts
+were absolutely necessary for the algorithm to work as intended, so it is assumed that
+these were typos in the original paper.
 """
 from collections import namedtuple
 import math
@@ -161,7 +167,7 @@ class WalkerTree:
             right_most = self._get_node(node.first_child)
             left_most = self._get_leftmost(right_most, level + 1, depth)
             # Do a postorder walk of the subtree below node
-            while left_most and right_most.has_right_sibling():
+            while not left_most and right_most.has_right_sibling():
                 right_most = self._get_node(right_most.right_sibling)
                 left_most = self._get_leftmost(right_most, level + 1, depth)
             return left_most
@@ -175,6 +181,7 @@ class WalkerTree:
         apportioned to smaller, interior subtrees, creating a pleasing
         aesthetic placement.
         """
+        log.debug("Apportion node: {}, level: {}".format(node, level))
         left_most = self._get_node(node.first_child)
         neighbor = left_most.left_neighbor
         compare_depth = 1
@@ -196,7 +203,18 @@ class WalkerTree:
             move_distance = (neighbor.prelim + left_mod_sum + self.subtree_separation + self.node_size) - (
                 left_most.prelim + right_mod_sum
             )
-            if move_distance:
+            log.debug(
+                "Move Distance = ({} + {} + {} + {}) - ({} + {}) = {}".format(
+                    neighbor.prelim,
+                    left_mod_sum,
+                    self.subtree_separation,
+                    self.node_size,
+                    left_most.prelim,
+                    right_mod_sum,
+                    move_distance,
+                )
+            )
+            if move_distance > 0:
                 # Count interior sibling sub-trees in left siblings
                 tmp = node
                 left_siblings = 0
@@ -207,7 +225,10 @@ class WalkerTree:
                     # Apply portions to appropriate left sibling sub-trees
                     portion = move_distance / left_siblings
                     tmp = node
-                    while tmp == ancestor_neighbor:
+                    # NB: this line is wrong in the original paper as it is missing the negation
+                    # and without it, the move distances are not applied correctly to all subtrees.
+                    while tmp != ancestor_neighbor:
+                        log.debug("Applying move distance: {} to node: {}".format(move_distance, tmp))
                         tmp.prelim += move_distance
                         tmp.modifier += move_distance
                         move_distance -= portion
@@ -224,6 +245,11 @@ class WalkerTree:
                 left_most = self._get_leftmost(node, 0, compare_depth)
             else:
                 left_most = self._get_node(left_most.first_child)
+
+            # NB: the original paper does not specify updating the neighbor, but this is
+            # absolutely necessary to ensure that the neighbor stays in sync level-wise with
+            # the leftmost node we are processing on the next iteration of the while loop.
+            neighbor = left_most and left_most.left_neighbor
 
     # Initialize the list of previous nodes at each level.
     def _init_prev_node_list(self):
