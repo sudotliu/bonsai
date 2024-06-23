@@ -3,7 +3,8 @@
 This is a Python implementation of John Q. Walker II's node-positioning
 algorithm for general trees with some adjustments and additional methods.
 
-Original paper: http://www.cs.unc.edu/techreports/89-034.pdf
+Included is the original report provided by the University of North Carolina: [A Node-Positioning
+Algorithm for General Trees](89-034.pdf)
 
 Note: there are select comments marked with NB (nota bene), which call to attention
 parts of the algorithm that differ from the original specification because the original
