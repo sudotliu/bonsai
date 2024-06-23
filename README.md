@@ -8,3 +8,5 @@ Included is the original report that this project is based on, provided by the U
 
 Note: there are select comments marked with NB (nota bene), which call to attention
 parts of the algorithm that differ from the original specification because something did not work as expected without those changes. The majority of the algorithm should otherwise be as prescribed in the report.
+
+While this project carries an MIT license, all rights and restrictions ultimately defer to those dictated by the original research work.
