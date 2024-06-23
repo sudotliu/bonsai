@@ -1,5 +1,4 @@
-# walker_tree
-Walker Node Positioning Algorithm in python
+# Walker Node Positioning Algorithm (python)
 
 This is a Python implementation of John Q. Walker II's node-positioning
 algorithm for general trees with some adjustments and additional methods.
