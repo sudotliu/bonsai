@@ -5,59 +5,6 @@ from .walker_tree import WalkerTree
 from collections import defaultdict
 from collections import namedtuple
 
-################################################################################
-### FIXME: hacking in serializers for now but this should be fixed
-import uuid
-from django.db import models
-
-# Operation constants
-ADDITION = "+"
-MULTIPLICATION = "*"
-# Note: these don't apply - we shouldn't add them until they do
-# SUBTRACTION = "-"
-# DIVISION = "/"
-OPERATION_CHOICES = [
-    (ADDITION, "Addition +"),
-    (MULTIPLICATION, "Multiplication *"),
-    # Note: these don't apply - we shouldn't add them until they do
-    # (SUBTRACTION, "Subtraction"),
-    # (DIVISION, "Division"),
-]
-
-class BaseModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created = models.DateTimeField("Timestamp of project creation", auto_now_add=True)
-    modified = models.DateTimeField("Timestamp of most recent project modification", auto_now=True)
-
-    class Meta:
-        abstract = True
-
-class Tree(BaseModel):
-    name = models.TextField("Name of the tree")
-    url_slug = models.URLField("The unique relative site path for the tree", unique=True)
-
-class Metric(BaseModel):
-    tree = models.ForeignKey(Tree, on_delete=models.CASCADE)
-    parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True)
-    operation = models.CharField(
-        "Enum value for mathematical operation used to compute metric value",
-        max_length=1,
-        choices=OPERATION_CHOICES,
-        null=True,
-        blank=True,
-    )
-    value = models.FloatField("Either a base value or computed value for the metric", null=True, blank=True)
-    unit = models.CharField(
-        "The unit that the metric value is presented in terms of", max_length=100, null=True, blank=True
-    )
-    left = models.BigIntegerField("Node position relative to the left of the root node used for rendering")
-    top = models.BigIntegerField("Node position relative to the top of the root node used for rendering")
-
-    def __str__(self):
-        return "{} {} (ID: {})".format(self.value, self.unit, self.id)
-################################################################################
-
-
 
 class Node():
     # Point is used to represent the position for a given node
