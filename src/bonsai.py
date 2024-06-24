@@ -1,6 +1,7 @@
 # FIXME: consider renaming public package to bonsai?
+import json
 from .walker_tree import WalkerTree
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from typing import DefaultDict, List, NamedTuple, Set
 
@@ -19,6 +20,10 @@ class InputNode:
     parent_id: str
     is_leaf: bool
 
+# TODO: reconsider this
+def serialize_input_node(node):
+    return json.dumps(asdict(node))
+
 @dataclass
 class BonsaiNode:
     id: str
@@ -35,11 +40,11 @@ class Bonsai:
     def __init__(self, tree: DefaultDict[str, List[InputNode]]):
         self._input_tree = tree
         self._w_tree: WalkerTree = self._construct_walker_tree()
-        self._b_node_set: Set[BonsaiNode] = set()
+        self._b_node_set: DefaultDict[str, BonsaiNode] = {}
         id_set = self._w_tree.get_all_node_ids()
         for node_id in id_set:
             pos = self._w_tree.get_position(node_id)
-            self._b_node_set.add(BonsaiNode(id=node_id, pos=pos))
+            self._b_node_set[node_id] = BonsaiNode(id=node_id, pos=pos)
 
     # Repositioning the 'Bonsai' tree covers all the high-level repeat work
     # needed each time the tree is updated, which includes:
@@ -49,11 +54,11 @@ class Bonsai:
     def _reposition(self):
         self._w_tree = self._construct_walker_tree()
         self._w_tree.position_tree()
-        for node in self._b_node_set:
+        for node in self._b_node_set.values():
             node.position = self._w_tree.get_position(node.id)
 
     def list_nodes(self) -> List[BonsaiNode]:
-        return list(self._b_node_set)
+        return list(self._b_node_set.values())
 
     def add_node(self, node: InputNode):
         if node in self._input_tree[node.parent_id]:
@@ -113,10 +118,8 @@ class Bonsai:
         if not self._input_tree:
             return w_tree
 
-        # Find root node
-        root_id = self._find_root_id()
-
         # Add root node first as a special case since it has no parent
+        root_id = self._find_root_id()
         root_children = self._input_tree[root_id]
         root_first_child = root_children[0].id if root_children else None
         nodes = {
