@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import DefaultDict, List, NamedTuple, Set
 
 
+# FIXME: do we need this???
 MAX_BIGINT = 9223372036854775807
 
 # Point is used to represent the position for a given node
@@ -53,12 +54,12 @@ class Bonsai:
     def list_nodes(self) -> List[BonsaiNode]:
         return list(self._b_node_set)
 
-    def add_node(self, node: InputNode, parent_id: str):
-        if node in self._input_tree[parent_id]:
+    def add_node(self, node: InputNode):
+        if node in self._input_tree[node.parent_id]:
             raise ValueError("Node already exists in tree")
 
         # Add new node to private _input_tree
-        self._input_tree[parent_id].add(node)
+        self._input_tree[node.parent_id].add(node)
         self._reposition()
 
     def delete_node(self, node_id: str):
