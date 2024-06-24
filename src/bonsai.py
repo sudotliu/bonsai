@@ -13,7 +13,7 @@ class Point(NamedTuple):
     x: int
     y: int
 
-@dataclass
+@dataclass(frozen=True)
 class InputNode:
     id: str
     parent_id: str
