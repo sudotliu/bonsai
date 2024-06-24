@@ -124,7 +124,7 @@ class Bonsai:
         nodes = {
             w_tree.WalkerNode(
                 node_id=root_id,
-                is_leaf=self.root_is_leaf(),
+                is_leaf=self._root_is_leaf(),
                 left_sibling=None,
                 right_sibling=None,
                 parent_id=None,
