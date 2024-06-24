@@ -1,4 +1,6 @@
-# Walker Node Positioning Algorithm (python)
+# Bonsai
+
+## Walker Node Positioning Algorithm
 
 This is a Python implementation of John Q. Walker II's node-positioning
 algorithm for general trees with some adjustments and additional methods.
