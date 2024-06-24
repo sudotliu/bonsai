@@ -19,8 +19,8 @@ class Node():
 class Bonsai(WalkerTree):
 
     # Take in arbitrary 'node' type based on 'bonsai.models.Metric' first
-    def __init__(self, nodes):
-        self._aug_nodes = self._augment_nodes(nodes)
+    def __init__(self, nodes, serial_nodes):
+        self._aug_nodes = self._augment_nodes(nodes, serial_nodes)
         # Nodes are stored in a dict of Node ID to the list of child Nodes
         self._nodes = {}
 
@@ -65,16 +65,16 @@ class Bonsai(WalkerTree):
 
     # FIXME - Should be a normal method, not a static method?
     @staticmethod
-    def _augment_nodes(nodes):
+    # FIXME: fix this interface
+    def _augment_nodes(nodes, serial_nodes):
         # Augment the tree nodes with additional information e.g. isLeaf
         child_count = defaultdict(int)
         for node in nodes:
+            print(node)
             if node.parent:
                 child_count[str(node.parent.id)] += 1
 
-        # FIXME: check the types are still right here without serializers
-        # node_dict = {str(n.id): serializers.MetricSerializer(n).data for n in nodes}
-        node_dict = nodes # just plug nodes straight over w/out serializers...
+        node_dict = serial_nodes # pre-serialized nodes
         for node_id in node_dict.keys():
             # Mark nodes with indication of whether it is a leaf node or not
             node_dict[node_id]["isLeaf"] = False if child_count.get(node_id) else True
