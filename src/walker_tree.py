@@ -387,8 +387,8 @@ class WalkerTree:
     def _validate_tree(self):
         no_parent_node_ids = []
         for _, node in self._internal_node_dict.items():
-            if node.is_leaf and (node.first_child or node.has_child()):
-                raise exceptions.InvalidTree("leaf node cannot also have child: {}".format(node.id))
+            if node.is_leaf and node.first_child:
+                raise exceptions.InvalidTree("leaf node: {} has first child: {}".format(node.id, node.first_child))
             if node.has_child() and not node.first_child:
                 raise exceptions.InvalidTree("parent node must have child: {}".format(node.id))
             if node.parent_id is None:
