@@ -10,10 +10,10 @@ class Node():
     # Point is used to represent the position for a given node
     Point = namedtuple("Point", "x y")
 
-    def __init__(self, id, position, parent=None):
+    def __init__(self, id, position, parent_id=None):
         self.id = id
         self.position = position
-        self.parent = parent
+        self.parent_id = parent_id
 
 
 class Bonsai(WalkerTree):
@@ -22,36 +22,42 @@ class Bonsai(WalkerTree):
     def __init__(self, nodes):
         self._aug_nodes = self._augment_nodes(nodes)
         # Nodes are stored in a dict of Node ID to the list of child Nodes
-        self.nodes = {}
+        self._nodes = {}
 
-    def add_node(self, node, parent):
-        nodes = self.nodes
-        nodes[parent.id].append(node)
+    def list_nodes(self):
+        # Create list of nodes from dict values of _nodes dict:
+        node_list = []
+        for sublist in self._nodes.values():
+            node_list.extend(sublist)
+
+        return node_list
+
+    def add_node(self, node, parent_id):
+        nodes = self._nodes
+        nodes[parent_id].append(node)
         node_dict = self._augment_nodes(nodes)
         w_tree = self._construct_walker_tree(node_dict)
         w_tree.position_tree()
 
         # Get calculated position for each node and save it
-        for node in self.nodes:
+        for node in self._nodes:
             point = w_tree.get_position(str(node.id))
             node.position = point
 
         # return???
 
     def delete_node(self, node):
-        # Do not allow deleting root node
-        if not node.parent:
+        # TODO: Do not allow deleting root node???
+        if not node.parent_id:
             return False # FIXME: raise exception instead?
 
-        # Delete node and clear parent if deleted node was last child
-        self.nodes.pop(node.id)
-
-        node_dict = self._augment_nodes(self.nodes)
+        self._nodes.pop(node.id)
+        node_dict = self._augment_nodes(self._nodes)
         w_tree = self._construct_walker_tree(node_dict)
         w_tree.position_tree()
 
         # Get calculated position for each node and save it
-        for node in self.nodes:
+        for node in self._nodes:
             point = w_tree.get_position(str(node.id))
             node.position = point
 
