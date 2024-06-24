@@ -81,13 +81,11 @@ class Bonsai:
         return len(self._input_tree) == 1
 
     def _find_root_id(self):
-        tree = self._input_tree
-
         # Collect all children in a set
-        all_children_ids = set(child.id for children in tree.values() for child in children)
+        child_ids = set(child.id for children in self._input_tree.values() for child in children)
 
         # Identify nodes not in children set
-        root_ids = [id for id in tree if id not in all_children_ids]
+        root_ids = [id for id in self._input_tree if id not in child_ids and id is not None]
 
         # Error handling based on the number of potential roots
         if len(root_ids) == 1:
