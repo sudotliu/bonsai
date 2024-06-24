@@ -1,16 +1,10 @@
 # FIXME: consider renaming public package to bonsai?
 import json
 from dataclasses import dataclass, asdict
-from typing import DefaultDict, List, NamedTuple, Set
+from typing import DefaultDict, List
 
-from .walker_tree import WalkerTree
+from .walker_tree import WalkerTree, Point
 
-
-# FIXME: redundant with walker Point?
-# Point is used to represent the position for a given node
-class Point(NamedTuple):
-    x: int
-    y: int
 
 @dataclass(frozen=True)
 class InputNode:
@@ -19,23 +13,17 @@ class InputNode:
     is_leaf: bool
     x: int
 
-# TODO: reconsider this
-def serialize_input_node(node):
-    return json.dumps(asdict(node))
-
 @dataclass
 class BonsaiNode:
     id: str
     pos: Point
 
-# FIXME: should this inherit from WalkerTree?
 class Bonsai:
-
     # The input is a dict of Parent Node ID to the list of child nodes,
     # where each child node is an instance of 'InputNode' and each list of
     # child nodes is sorted in the order that they should be positioned from
     # left to right.
-    # Note: values must be a List since order is important
+    # NOTE: values must be a List since order is important
     def __init__(self, tree: DefaultDict[str, List[InputNode]]):
         self._input_tree = tree
         self._w_tree = self._construct_walker_tree()
@@ -102,8 +90,8 @@ class Bonsai:
     # This does most of the heavy lifting in terms of constructing the 'WalkerTree'
     # which is used to calculate new positions of the nodes in the tree.
     # The tree is always repositioned in this call before being returned.
-    # NOTE: for improved performance, we might be able to avoid always repositioning
-    # but it seems non-trivial
+    # NOTE: for improved performance, we might be able to avoid always
+    # repositioning but it seems non-trivial
     def _construct_walker_tree(self) -> WalkerTree:
         # Configure node-positioning tree
         # TODO: make these parameters configurable
@@ -153,7 +141,6 @@ class Bonsai:
                     )
                 )
 
-        # TODO: is this hand-off necessary or can we cut redundancy here?
         w_tree.populate_tree(nodes)
 
         return w_tree
