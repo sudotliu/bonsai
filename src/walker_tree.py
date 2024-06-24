@@ -2,20 +2,14 @@
 Python implementation based on John Q. Walker II's node-positioning
 algorithm for general trees with some adjustments and additional methods.
 
-http://www.cs.unc.edu/techreports/89-034.pdf
-
-NB: there are select comments marked with NB (nota bene), which call to attention
-parts of the algorithm that differ from the original specification because the original
-specification appears to be wrong in those places. The changes made in these parts
-were absolutely necessary for the algorithm to work as intended, so it is assumed that
-these were typos in the original paper.
+See project README.md for more details.
 """
 from collections import namedtuple
 import math
 import logging
 from typing import Optional, Set
 
-from walker_tree import exceptions
+from . import exceptions
 
 log = logging.getLogger(__name__)
 
@@ -69,13 +63,13 @@ class WalkerTree:
         self.min_y = min_y
         self.max_y = max_y
 
-        self._validate_configuration()
+        self._validate_config()
 
         # Tree is represented internally as a map of Node ID to the Node object
         self._tree = {}
         self._root_node_id = None
 
-    def _validate_configuration(self):
+    def _validate_config(self):
         invalid_values = {}
         if self.sibling_separation < 0:
             invalid_values["sibling_separation"] = self.sibling_separation
