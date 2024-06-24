@@ -88,7 +88,7 @@ class WalkerTree:
         if invalid_values:
             raise exceptions.InvalidTreeConfiguration("invalid values: {}".format(invalid_values))
 
-    class Node:
+    class WalkerNode:
         """Client-facing representation of a tree node used when populating the tree.
 
         Args:
@@ -96,7 +96,7 @@ class WalkerTree:
             is_leaf: boolean indicating whether this node is a leaf node i.e. does not have children
             left_sibling: ID of the node (with same parent) immediately to the left of this node, if any
             right_sibling: ID of the node (with same parent) immediately to the right of this node, if any
-            parent: ID of the parent node, if any
+            parent_id: ID of the parent node, if any
             first_child: ID of the leftmost child of this node, if any
         """
 
@@ -106,17 +106,17 @@ class WalkerTree:
             is_leaf: bool,
             left_sibling: Optional[str],
             right_sibling: Optional[str],
-            parent: Optional[str],
+            parent_id: Optional[str],
             first_child: Optional[str],
         ):
             self.id = node_id
             self.is_leaf = is_leaf
             self.left_sibling = left_sibling
             self.right_sibling = right_sibling
-            self.parent = parent
+            self.parent_id = parent_id
             self.first_child = first_child
 
-    class _InternalNode(Node):
+    class _InternalNode(WalkerNode):
         def __init__(self, node):
             super().__init__(
                 node.id, node.is_leaf, node.left_sibling, node.right_sibling, node.parent, node.first_child
@@ -188,8 +188,8 @@ class WalkerTree:
             ancestor_left_most = left_most
             ancestor_neighbor = neighbor
             for i in range(compare_depth):
-                ancestor_left_most = self._get_node(ancestor_left_most.parent)
-                ancestor_neighbor = self._get_node(ancestor_neighbor.parent)
+                ancestor_left_most = self._get_node(ancestor_left_most.parent_id)
+                ancestor_neighbor = self._get_node(ancestor_neighbor.parent_id)
                 right_mod_sum += ancestor_left_most.modifier
                 left_mod_sum += ancestor_neighbor.modifier
             # Find the move distance and apply it to node's sub-tree
@@ -428,7 +428,7 @@ class WalkerTree:
         else:
             self._root_node_id = no_parent_node_ids[0]
 
-    def populate_tree(self, nodes: Set[Node]):
+    def populate_tree(self, nodes: Set[WalkerNode]):
         """This method populates the tree with the given set of nodes.
         Note: this merely establishes the set of nodes to process and validates the tree state.
         Node positions will not be updated until 'position_tree' is called.
