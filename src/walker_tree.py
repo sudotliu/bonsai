@@ -391,13 +391,13 @@ class WalkerTree:
                 raise exceptions.InvalidTree("leaf node cannot also have child: {}".format(node.id))
             if node.has_child() and not node.first_child:
                 raise exceptions.InvalidTree("parent node must have child: {}".format(node.id))
-            if node.parent is None:
+            if node.parent_id is None:
                 no_parent_node_ids.append(node.id)
 
             # Ensure all IDs exist in tree
             if node.id not in self._internal_node_dict:
                 raise exceptions.InvalidTree("node ID not in tree: {}".format(node.id))
-            if node.parent and node.parent not in self._internal_node_dict:
+            if node.parent_id and node.parent_id not in self._internal_node_dict:
                 raise exceptions.InvalidTree("parent ID not in tree for node: {}".format(node.id))
             if node.left_sibling and node.left_sibling not in self._internal_node_dict:
                 raise exceptions.InvalidTree("left sibling ID not in tree for node: {}".format(node.id))
