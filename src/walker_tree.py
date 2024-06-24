@@ -419,7 +419,7 @@ class WalkerTree:
             # Ensure parent child is consistent
             if node.has_child():
                 first_child = self._internal_node_dict[node.first_child]
-                if first_child.parent != node.id:
+                if first_child.parent_id != node.id:
                     raise exceptions.InvalidTree("first child discrepancy: {}".format(node.id))
 
         # Ensure only one root node is missing parent and set parent if valid
