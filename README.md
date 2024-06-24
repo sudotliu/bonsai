@@ -1,6 +1,6 @@
 # Bonsai
 
-## Walker Node Positioning Algorithm
+## Walker Node Positioning Algorithm (in Python)
 
 Bonsai is a tree positioning package that can assign coordinates for all nodes in a given tree such that the nodes can be neatly and evenly spaced out when displayed visually. The original use-case was to enable recomputing the node positions for a dynamic tree to be rendered in a web application, so anything similar may benefit from this. Pretty much anything that involves displaying a tree structure that changes in shape often enough to make it cumbersome to reposition or balance by hand.
 
