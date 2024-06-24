@@ -1,14 +1,12 @@
 # FIXME: consider renaming public package to bonsai?
 import json
-from .walker_tree import WalkerTree
 from dataclasses import dataclass, asdict
-
 from typing import DefaultDict, List, NamedTuple, Set
 
+from .walker_tree import WalkerTree
 
-# FIXME: do we need this???
-MAX_BIGINT = 9223372036854775807
 
+# FIXME: redundant with walker Point?
 # Point is used to represent the position for a given node
 class Point(NamedTuple):
     x: int
@@ -19,6 +17,7 @@ class InputNode:
     id: str
     parent_id: str
     is_leaf: bool
+    x: int
 
 # TODO: reconsider this
 def serialize_input_node(node):
@@ -27,7 +26,7 @@ def serialize_input_node(node):
 @dataclass
 class BonsaiNode:
     id: str
-    pos: Point = Point(MAX_BIGINT, 0)
+    pos: Point
 
 # FIXME: should this inherit from WalkerTree?
 class Bonsai:
@@ -39,7 +38,8 @@ class Bonsai:
     # Note: values must be a List since order is important
     def __init__(self, tree: DefaultDict[str, List[InputNode]]):
         self._input_tree = tree
-        self._w_tree: WalkerTree = self._construct_walker_tree()
+        self._w_tree = self._construct_walker_tree()
+        self._w_tree.position_tree()
         self._b_node_set: DefaultDict[str, BonsaiNode] = {}
         id_set = self._w_tree.get_all_node_ids()
         for node_id in id_set:
@@ -54,16 +54,15 @@ class Bonsai:
     def _reposition(self):
         self._w_tree = self._construct_walker_tree()
         self._w_tree.position_tree()
-        for node in self._b_node_set.values():
-            node.position = self._w_tree.get_position(node.id)
+        for b_node in self._b_node_set.values():
+            self._b_node_set[b_node.id].pos = self._w_tree.get_position(b_node.id)
 
     def list_nodes(self) -> List[BonsaiNode]:
-        return list(self._b_node_set.values())
+        return self._b_node_set.values()
 
     def add_node(self, node: InputNode):
         if node in self._input_tree[node.parent_id]:
             raise ValueError("Node already exists in tree")
-
         # Add new node to private _input_tree
         self._input_tree[node.parent_id].append(node)
         self._reposition()
@@ -87,10 +86,10 @@ class Bonsai:
 
     def _find_root_id(self):
         # Collect all children in a set
-        child_ids = set(child.id for children in self._input_tree.values() for child in children)
+        child_ids = set(str(child.id) for children in self._input_tree.values() for child in children)
 
-        # Identify nodes not in children set
-        root_ids = [id for id in self._input_tree if id not in child_ids and id is not None]
+        # Identify potential root IDs i.e. those not in children set
+        root_ids = [str(id) for id in self._input_tree if str(id) not in child_ids and id is not None]
 
         # Error handling based on the number of potential roots
         if len(root_ids) == 1:
@@ -117,6 +116,10 @@ class Bonsai:
         )
         if not self._input_tree:
             return w_tree
+
+        # Sort children of each parent node by x-coordinate
+        for parent_id, children in self._input_tree.items():
+            self._input_tree[parent_id] = sorted(children, key=lambda c: c.x)
 
         # Add root node first as a special case since it has no parent
         root_id = self._find_root_id()

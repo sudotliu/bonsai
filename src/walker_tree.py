@@ -398,23 +398,25 @@ class WalkerTree:
             if node.id not in self._internal_node_dict:
                 raise exceptions.InvalidTree("node ID not in tree: {}".format(node.id))
             if node.parent_id and node.parent_id not in self._internal_node_dict:
-                raise exceptions.InvalidTree("parent ID not in tree for node: {}".format(node.id))
+                raise exceptions.InvalidTree("parent ID {} not in tree for node: {}".format(node.parent_id, node.id))
             if node.left_sibling and node.left_sibling not in self._internal_node_dict:
-                raise exceptions.InvalidTree("left sibling ID not in tree for node: {}".format(node.id))
+                raise exceptions.InvalidTree("left sibling ID {} not in tree for node: {}".format(node.left_sibling, node.id))
             if node.right_sibling and node.right_sibling not in self._internal_node_dict:
-                raise exceptions.InvalidTree("right sibling ID not in tree for node: {}".format(node.id))
+                raise exceptions.InvalidTree("right sibling ID {} not in tree for node: {}".format(node.right_sibling, node.id))
             if node.first_child and node.first_child not in self._internal_node_dict:
-                raise exceptions.InvalidTree("first child ID not in tree for node: {}".format(node.id))
+                raise exceptions.InvalidTree("first child ID {} not in tree for node: {}".format(node.first_child, node.id))
 
             # Ensure siblings are consistent
             if node.has_left_sibling():
                 left_sibling = self._internal_node_dict[node.left_sibling]
-                if left_sibling.right_sibling != node.id:
-                    raise exceptions.InvalidTree("left sibling discrepancy: {}".format(node.id))
+                lefts_right = left_sibling.right_sibling
+                if lefts_right != node.id:
+                    raise exceptions.InvalidTree("left sibling discrepancy: {} != {}".format(lefts_right, node.id))
             if node.has_right_sibling():
                 right_sibling = self._internal_node_dict[node.right_sibling]
-                if right_sibling.left_sibling != node.id:
-                    raise exceptions.InvalidTree("right sibling discrepancy: {}".format(node.id))
+                rights_left = right_sibling.left_sibling
+                if rights_left != node.id:
+                    raise exceptions.InvalidTree("right sibling discrepancy: {} != {}".format(rights_left, node.id))
 
             # Ensure parent child is consistent
             if node.has_child():
