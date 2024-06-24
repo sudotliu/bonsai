@@ -7,7 +7,7 @@ See project README.md for more details.
 from collections import namedtuple
 import math
 import logging
-from typing import Optional, Set
+from typing import Optional, Set, Dict
 
 from . import exceptions
 
@@ -65,8 +65,8 @@ class WalkerTree:
 
         self._validate_config()
 
-        # Tree is represented internally as a map of Node ID to the Node object
-        self._tree = {}
+        # Tree is represented internally as a dict of Node ID to the Node object
+        self._internal_node_dict: Dict[str, self._InternalNode] = {}
         self._root_node_id = None
 
     def _validate_config(self):
@@ -265,7 +265,7 @@ class WalkerTree:
             i += 1
         return None
 
-    # Internal class used to track previous progress
+    # Private class used to track previous progress
     class _NodeTracker:
         def __init__(self, prev_node=None, next_level=None):
             self.prev_node = prev_node
@@ -380,13 +380,13 @@ class WalkerTree:
     def _get_node(self, node_id: str) -> Optional[_InternalNode]:
         if not node_id:
             return None
-        if node_id not in self._tree:
+        if node_id not in self._internal_node_dict:
             raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
-        return self._tree[node_id]
+        return self._internal_node_dict[node_id]
 
     def _validate_tree(self):
         no_parent_node_ids = []
-        for node_id, node in self._tree.items():
+        for node_id, node in self._internal_node_dict.items():
             if node.is_leaf and (node.first_child or node.has_child()):
                 raise exceptions.InvalidTree("leaf node cannot also have child: {}".format(node.id))
             if node.has_child() and not node.first_child:
@@ -395,30 +395,30 @@ class WalkerTree:
                 no_parent_node_ids.append(node.id)
 
             # Ensure all IDs exist in tree
-            if node.id not in self._tree:
+            if node.id not in self._internal_node_dict:
                 raise exceptions.InvalidTree("node ID not in tree: {}".format(node.id))
-            if node.parent and node.parent not in self._tree:
+            if node.parent and node.parent not in self._internal_node_dict:
                 raise exceptions.InvalidTree("parent ID not in tree for node: {}".format(node.id))
-            if node.left_sibling and node.left_sibling not in self._tree:
+            if node.left_sibling and node.left_sibling not in self._internal_node_dict:
                 raise exceptions.InvalidTree("left sibling ID not in tree for node: {}".format(node.id))
-            if node.right_sibling and node.right_sibling not in self._tree:
+            if node.right_sibling and node.right_sibling not in self._internal_node_dict:
                 raise exceptions.InvalidTree("right sibling ID not in tree for node: {}".format(node.id))
-            if node.first_child and node.first_child not in self._tree:
+            if node.first_child and node.first_child not in self._internal_node_dict:
                 raise exceptions.InvalidTree("first child ID not in tree for node: {}".format(node.id))
 
             # Ensure siblings are consistent
             if node.has_left_sibling():
-                left_sibling = self._tree[node.left_sibling]
+                left_sibling = self._internal_node_dict[node.left_sibling]
                 if left_sibling.right_sibling != node.id:
                     raise exceptions.InvalidTree("left sibling discrepancy: {}".format(node.id))
             if node.has_right_sibling():
-                right_sibling = self._tree[node.right_sibling]
+                right_sibling = self._internal_node_dict[node.right_sibling]
                 if right_sibling.left_sibling != node.id:
                     raise exceptions.InvalidTree("right sibling discrepancy: {}".format(node.id))
 
             # Ensure parent child is consistent
             if node.has_child():
-                first_child = self._tree[node.first_child]
+                first_child = self._internal_node_dict[node.first_child]
                 if first_child.parent != node.id:
                     raise exceptions.InvalidTree("first child discrepancy: {}".format(node.id))
 
@@ -434,7 +434,7 @@ class WalkerTree:
         Node positions will not be updated until 'position_tree' is called.
         """
         for node in nodes:
-            self._tree[node.id] = self._InternalNode(node)
+            self._internal_node_dict[node.id] = self._InternalNode(node)
         self._validate_tree()
 
     def position_tree(self):
@@ -445,7 +445,7 @@ class WalkerTree:
         Tree repositioning is left decoupled from adding or removing nodes to allow for those actions
         to be done in bulk without incurring the costs of repositioning.
         """
-        if len(self._tree) == 0:
+        if len(self._internal_node_dict) == 0:
             raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
 
         root = self._get_node(self._root_node_id)
@@ -475,8 +475,12 @@ class WalkerTree:
         x_position = point.x
         y_position = point.y
         """
-        if len(self._tree) == 0:
+        if len(self._internal_node_dict) == 0:
             raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
 
         node = self._get_node(node_id)
         return node.point
+
+    def get_all_node_ids(self) -> Set[str]:
+        """This method returns a set of all node IDs in the Walker Tree."""
+        return set(self._internal_node_dict.keys())

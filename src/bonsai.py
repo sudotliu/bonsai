@@ -1,26 +1,27 @@
 # FIXME: consider renaming public package to bonsai?
-
 from .walker_tree import WalkerTree
-from collections import defaultdict
-from collections import namedtuple
+from dataclasses import dataclass
 
-from typing import DefaultDict, List
+from typing import DefaultDict, List, NamedTuple, Set
 
 
+MAX_BIGINT = 9223372036854775807
 
 # Point is used to represent the position for a given node
-Point = namedtuple("Point", "x y")
+class Point(NamedTuple):
+    x: int
+    y: int
 
+@dataclass
 class InputNode:
-    def __init__(self, id: str, parent_id: str, is_leaf: bool):
-        self.id = id
-        self.is_leaf = is_leaf
+    id: str
+    parent_id: str
+    is_leaf: bool
 
+@dataclass
 class BonsaiNode:
-    def __init__(self, id: str, position, parent_id=None):
-        self.id = id
-        self.position = position
-        self.parent_id = parent_id
+    id: str
+    pos: Point = Point(MAX_BIGINT, 0)
 
 # FIXME: should this inherit from WalkerTree?
 class Bonsai:
@@ -29,62 +30,57 @@ class Bonsai:
     # where each child node is an instance of 'InputNode' and each list of
     # child nodes is sorted in the order that they should be positioned from
     # left to right.
-    def __init__(self, tree: DefaultDict[str, List[InputNode]]):
-        self._w_tree = self._construct_walker_tree(tree)
+    def __init__(self, tree: DefaultDict[str, Set[InputNode]]):
+        self._input_tree = tree
+        self._w_tree: WalkerTree = self._construct_walker_tree()
+        self._b_node_set: Set[BonsaiNode] = set()
+        id_set = self._w_tree.get_all_node_ids()
+        for node_id in id_set:
+            pos = self._w_tree.get_position(node_id)
+            self._b_node_set.add(BonsaiNode(id=node_id, pos=pos))
 
-    def list_nodes(self):
-        # Create list of nodes from dict values of _nodes dict:
-        node_list = []
-        for sublist in self._nodes.values():
-            node_list.extend(sublist)
+    # Repositioning the 'Bonsai' tree covers all the high-level repeat work
+    # needed each time the tree is updated, which includes:
+    # - Reconstructing the underlying 'Walker Tree'
+    # - Repositioning the 'Walker Tree' nodes
+    # - Updating the positions of all Bonsai nodes
+    def _reposition(self):
+        self._w_tree = self._construct_walker_tree()
+        self._w_tree.position_tree()
+        for node in self._b_node_set:
+            node.position = self._w_tree.get_position(node.id)
 
-        return node_list
+    def list_nodes(self) -> List[BonsaiNode]:
+        return list(self._b_node_set)
 
-    def add_node(self, node, parent_id):
-        self._nodes[parent_id].append(node)
-        node_dict = self._augment_nodes()
-        w_tree = self._construct_walker_tree(node_dict)
-        w_tree.position_tree()
+    def add_node(self, node: InputNode, parent_id: str):
+        if node in self._input_tree[parent_id]:
+            raise ValueError("Node already exists in tree")
 
-        # Get calculated position for each node and save it
-        for node in self._nodes:
-            point = w_tree.get_position(str(node.id))
-            node.position = point
+        # Add new node to private _input_tree
+        self._input_tree[parent_id].add(node)
+        self._reposition()
 
-    def delete_node(self, node):
-        # TODO: Do not allow deleting root node???
-        if not node.parent_id:
-            return False # FIXME: raise exception instead?
+    def delete_node(self, node_id: str):
+        # First remove node from any children lists in _input_tree
+        for children in self._input_tree.values():
+            for i, child in enumerate(children):
+                if child.id == node_id:
+                    del children[i]
+                    break
 
-        self._nodes.pop(node.id)
-        node_dict = self._augment_nodes()
-        w_tree = self._construct_walker_tree(node_dict)
-        w_tree.position_tree()
+        # Remove node from keys of _input_tree
+        if node_id in self._input_tree:
+            del self._input_tree[node_id]
 
-        # Get calculated position for each node and save it
-        for node in self._nodes:
-            point = w_tree.get_position(str(node.id))
-            node.position = point
+        self._reposition()
 
-    # FIXME: fix this interface
-    def _augment_nodes(self, serial_nodes=None):
-        # Augment the tree nodes with additional information e.g. isLeaf
-        child_count = defaultdict(int)
-        for node in serial_nodes:
-            if node.parent:
-                child_count[str(node.parent.id)] += 1
+    def _root_is_leaf(self):
+        return len(self._input_tree) == 1
 
-        node_dict = serial_nodes # pre-serialized nodes
-        if not node_dict:
-            return None
-        for node_id in node_dict.keys():
-            # Mark nodes with indication of whether it is a leaf node or not
-            node_dict[node_id]["isLeaf"] = False if child_count.get(node_id) else True
+    def _find_root_id(self):
+        tree = self._input_tree
 
-        return node_dict
-
-    @staticmethod 
-    def find_root(tree: DefaultDict[str, List[InputNode]]):
         # Collect all children in a set
         all_children_ids = set(child.id for children in tree.values() for child in children)
 
@@ -99,8 +95,12 @@ class Bonsai:
         else:
             raise ValueError("Invalid tree input: no root node found")
 
-    # FIXME - Should be a normal method, not a static method?
-    def _construct_walker_tree(self, tree: DefaultDict[str, List[InputNode]]) -> WalkerTree:
+    # This does most of the heavy lifting in terms of constructing the 'WalkerTree'
+    # which is used to calculate new positions of the nodes in the tree.
+    # The tree is always repositioned in this call before being returned.
+    # NOTE: for improved performance, we might be able to avoid always repositioning
+    # but it seems non-trivial
+    def _construct_walker_tree(self) -> WalkerTree:
         # Configure node-positioning tree
         # TODO: make these parameters configurable
         w_tree = WalkerTree(
@@ -110,21 +110,19 @@ class Bonsai:
             max_depth=100,
             node_size=250,
         )
-        if not tree:
+        if not self._input_tree:
             return w_tree
 
         # Find root node
-        root_id = self.find_root_id(tree)
-        # Find out if root node is a leaf which is only possible if the tree size is 1
-        root_is_leaf = True if len(tree) == 1 else False
+        root_id = self._find_root_id()
 
         # Add root node first as a special case since it has no parent
-        root_children = tree[root_id]
+        root_children = self._input_tree[root_id]
         root_first_child = root_children[0].id if root_children else None
         nodes = {
             w_tree.WalkerNode(
                 node_id=root_id,
-                is_leaf=root_is_leaf,
+                is_leaf=self.root_is_leaf(),
                 left_sibling=None,
                 right_sibling=None,
                 parent_id=None,
@@ -132,15 +130,16 @@ class Bonsai:
             )
         }
         # Build up Walker Tree using nodes augmented with "family" metadata
-        for parent_id, children in tree.items():
+        for parent_id, children in self._input_tree.items():
             for i, child in enumerate(children):
                 left_sibling = children[i - 1].id if i > 0 else None
                 right_sibling = children[i + 1].id if i < len(children) - 1 else None
-                first_child = tree[child.id][0].id if child.id in tree and tree[child.id] else None
+                child_has_children = child.id in self._input_tree and self._input_tree[child.id]
+                first_child = self._input_tree[child.id][0].id if child_has_children else None
                 nodes.add(
                     w_tree.WalkerNode(
                         node_id=child.id,
-                        is_leaf=child["isLeaf"],
+                        is_leaf=child.is_leaf,
                         left_sibling=left_sibling,
                         right_sibling=right_sibling,
                         parent_id=parent_id,
@@ -148,6 +147,7 @@ class Bonsai:
                     )
                 )
 
+        # TODO: is this hand-off necessary or can we cut redundancy here?
         w_tree.populate_tree(nodes)
 
         return w_tree
