@@ -19,10 +19,9 @@ class Node():
 class Bonsai(WalkerTree):
 
     # Take in arbitrary 'node' type based on 'bonsai.models.Metric' first
-    def __init__(self, nodes, serial_nodes):
+    def __init__(self, serial_nodes):
         # Nodes are stored in a dict of Node ID to the list of child Nodes
-        self._nodes = nodes
-        self._aug_nodes = self._augment_nodes(serial_nodes)
+        self._nodes = self._augment_nodes(serial_nodes)
 
     def list_nodes(self):
         # Create list of nodes from dict values of _nodes dict:
@@ -63,7 +62,6 @@ class Bonsai(WalkerTree):
         # Augment the tree nodes with additional information e.g. isLeaf
         child_count = defaultdict(int)
         for node in self._nodes:
-            print(node)
             if node.parent:
                 child_count[str(node.parent.id)] += 1
 
