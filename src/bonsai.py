@@ -31,7 +31,8 @@ class Bonsai:
     # where each child node is an instance of 'InputNode' and each list of
     # child nodes is sorted in the order that they should be positioned from
     # left to right.
-    def __init__(self, tree: DefaultDict[str, Set[InputNode]]):
+    # Note: values must be a List since order is important
+    def __init__(self, tree: DefaultDict[str, List[InputNode]]):
         self._input_tree = tree
         self._w_tree: WalkerTree = self._construct_walker_tree()
         self._b_node_set: Set[BonsaiNode] = set()
@@ -59,7 +60,7 @@ class Bonsai:
             raise ValueError("Node already exists in tree")
 
         # Add new node to private _input_tree
-        self._input_tree[node.parent_id].add(node)
+        self._input_tree[node.parent_id].append(node)
         self._reposition()
 
     def delete_node(self, node_id: str):
