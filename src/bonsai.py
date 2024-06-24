@@ -20,9 +20,9 @@ class Bonsai(WalkerTree):
 
     # Take in arbitrary 'node' type based on 'bonsai.models.Metric' first
     def __init__(self, nodes, serial_nodes):
-        self._aug_nodes = self._augment_nodes(nodes, serial_nodes)
         # Nodes are stored in a dict of Node ID to the list of child Nodes
-        self._nodes = {}
+        self._nodes = nodes
+        self._aug_nodes = self._augment_nodes(serial_nodes)
 
     def list_nodes(self):
         # Create list of nodes from dict values of _nodes dict:
@@ -33,9 +33,8 @@ class Bonsai(WalkerTree):
         return node_list
 
     def add_node(self, node, parent_id):
-        nodes = self._nodes
-        nodes[parent_id].append(node)
-        node_dict = self._augment_nodes(nodes)
+        self._nodes[parent_id].append(node)
+        node_dict = self._augment_nodes()
         w_tree = self._construct_walker_tree(node_dict)
         w_tree.position_tree()
 
@@ -43,8 +42,6 @@ class Bonsai(WalkerTree):
         for node in self._nodes:
             point = w_tree.get_position(str(node.id))
             node.position = point
-
-        # return???
 
     def delete_node(self, node):
         # TODO: Do not allow deleting root node???
@@ -52,7 +49,7 @@ class Bonsai(WalkerTree):
             return False # FIXME: raise exception instead?
 
         self._nodes.pop(node.id)
-        node_dict = self._augment_nodes(self._nodes)
+        node_dict = self._augment_nodes()
         w_tree = self._construct_walker_tree(node_dict)
         w_tree.position_tree()
 
@@ -61,20 +58,18 @@ class Bonsai(WalkerTree):
             point = w_tree.get_position(str(node.id))
             node.position = point
 
-        # return???
-
-    # FIXME - Should be a normal method, not a static method?
-    @staticmethod
     # FIXME: fix this interface
-    def _augment_nodes(nodes, serial_nodes):
+    def _augment_nodes(self, serial_nodes=None):
         # Augment the tree nodes with additional information e.g. isLeaf
         child_count = defaultdict(int)
-        for node in nodes:
+        for node in self._nodes:
             print(node)
             if node.parent:
                 child_count[str(node.parent.id)] += 1
 
         node_dict = serial_nodes # pre-serialized nodes
+        if not node_dict:
+            return None
         for node_id in node_dict.keys():
             # Mark nodes with indication of whether it is a leaf node or not
             node_dict[node_id]["isLeaf"] = False if child_count.get(node_id) else True
