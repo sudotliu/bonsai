@@ -119,7 +119,7 @@ class WalkerTree:
     class _InternalNode(WalkerNode):
         def __init__(self, node):
             super().__init__(
-                node.id, node.is_leaf, node.left_sibling, node.right_sibling, node.parent, node.first_child
+                node.id, node.is_leaf, node.left_sibling, node.right_sibling, node.parent_id, node.first_child
             )
 
             # The current node's preliminary x-coordinate
