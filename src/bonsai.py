@@ -7,17 +7,23 @@ from .exceptions import *
 
 
 @dataclass
-class InputNode:
-    id: str
-    parent_id: str
-    is_leaf: bool
-    x: int
-
-
-@dataclass
 class Node:
+    """
+    Node is the basic unit of the tree and is used for both input and output.
+    Take extra care to understand how the 'pos' (short for position) attribute
+    works based on notes below as it may not be immediately obvious.
+    
+    Attributes:
+        id (str): Unique identifier for the node.
+        pos (Point): The position of the node in the tree.
+            - Consider zero the center for x, so negative values go left, positive right.
+            - NOTE: y is inverted, so zero is the top of the tree and positive values go down.
+            - Also note that the y-coordinate in Point input is not important as it is recomputed.
+        _is_leaf (bool): For internal use, no need to input, hence the underscore and default.
+    """
     id: str
     pos: Point
+    _is_leaf: bool = False
 
     
 @dataclass(frozen=True)
@@ -45,36 +51,41 @@ class Config:
 class Bonsai:
     # The input is a dict of Parent Node ID to the list of child nodes,
     # where each child node is an instance of 'InputNode'.
-    def __init__(self, tree: DefaultDict[str, List[InputNode]], config: Config = Config()):
+    def __init__(self, tree: DefaultDict[str, List[Node]], config: Config = Config()):
         # _parent_id_to_children: main tree structure for tracking tree state
         self._parent_id_to_children = tree
+        # Mark all leaf nodes in the tree
+        self._mark_leaves()
         # _w_tree: instance of 'Walker Tree' built from our main tree
         self._w_tree_config = config
         self._w_tree_setup()
         self._w_tree.position_tree()
-        # _b_node_set: dictionary of ID to node for all nodes in tree, useful for quick lookups or
-        # composing a flat list of nodes with position data.
-        self._b_node_set: DefaultDict[str, Node] = defaultdict(None)
-        for node_id in self._w_tree.get_all_node_ids():
-            pos = self._w_tree.get_position(node_id)
-            self._b_node_set[node_id] = Node(id=node_id, pos=pos)
-
+        
     # Repositioning the 'Bonsai' tree covers all the high-level repeat work
     # needed each time the tree is updated, which includes:
     # - Reconstructing the underlying 'Walker Tree'
     # - Repositioning the 'Walker Tree' nodes
     # - Updating the positions of all Bonsai nodes
     def _reposition(self):
+        self._mark_leaves()
         self._w_tree_setup()
         self._w_tree.position_tree()
-        for b_node in self._b_node_set.values():
-            self._b_node_set[b_node.id].pos = self._w_tree.get_position(b_node.id)
 
     def list_nodes(self) -> List[Node]:
         """
-        Simple flat list of all tree nodes with minimal data required for positioning.
+        Return a simple list of all tree nodes with minimal data required for positioning.
         """
-        return list(self._b_node_set.values())
+        # FIXME: return list from main tree structure
+        nodes: List[Node] = []
+        # Build up list of all nodes in the tree into Node types while getting position from walker tree
+        for parent_id, children in self._parent_id_to_children.items():
+            pos = self._w_tree.get_position(parent_id)
+            nodes.append(Node(id=parent_id, pos=pos, _is_leaf=False))
+            for child in children:
+                pos = self._w_tree.get_position(child.id)
+                nodes.append(Node(id=child.id, pos=pos, _is_leaf=child._is_leaf))
+            
+        return nodes
 
     def add_leaf(self, node_id: str, parent_id: str):
         """
@@ -86,20 +97,18 @@ class Bonsai:
         """
         rightmost_sibling_x = 0
         for sibling in self._parent_id_to_children[parent_id]:
-            rightmost_sibling_x = max(rightmost_sibling_x, sibling.x)
+            rightmost_sibling_x = max(rightmost_sibling_x, sibling.pos.x)
             if sibling.id == node_id:
                 raise ValueError("Node already exists in tree")
 
-        new_leaf = InputNode(
+        new_leaf = Node(
             id=node_id,
-            parent_id=parent_id,
-            is_leaf=True,
-            x=rightmost_sibling_x + 1,
+            pos=Point(rightmost_sibling_x + 1, 0),
+            _is_leaf=True,
         )
         
         # Update tree data structures
         self._parent_id_to_children[parent_id].append(new_leaf)
-        self._b_node_set[new_leaf.id] = Node(id=new_leaf.id, pos=Point(new_leaf.x, 0))
         
         # Since we've added a leaf, we need to make sure to update the parent
         # node as no longer being a leaf node.
@@ -139,6 +148,11 @@ class Bonsai:
         # Reposition the tree after all subtree nodes have been deleted
         self._reposition()
         
+    def _mark_leaves(self):
+        for children in self._parent_id_to_children.values():
+            for child in children:
+                child._is_leaf = child.id not in self._parent_id_to_children
+       
     def _update_is_leaf(self, node_id: str, is_leaf: bool):
         """
         Update the 'is_leaf' attribute of a node in the tree.
@@ -146,7 +160,7 @@ class Bonsai:
         for parent_id, children in self._parent_id_to_children.items():
             for i, child in enumerate(children):
                 if child.id == node_id:
-                    self._parent_id_to_children[parent_id][i].is_leaf = is_leaf
+                    self._parent_id_to_children[parent_id][i]._is_leaf = is_leaf
                     return
         
     def _delete_node(self, node_id: str, node_parent_id: str):
@@ -162,10 +176,6 @@ class Bonsai:
         # Remove node as parent from keys of _input_tree
         if node_id in self._parent_id_to_children:
             del self._parent_id_to_children[node_id]
-
-        # Remove node from _b_node_set
-        if node_id in self._b_node_set:
-            del self._b_node_set[node_id]
 
     def _root_is_leaf(self):
         if len(self._parent_id_to_children) == 0:
@@ -215,7 +225,7 @@ class Bonsai:
 
         # Sort children of each parent node by x-coordinate
         for parent_id, children in self._parent_id_to_children.items():
-            self._parent_id_to_children[parent_id] = sorted(children, key=lambda c: c.x)
+            self._parent_id_to_children[parent_id] = sorted(children, key=lambda c: c.pos.x)
 
         # Add root node first as a special case since it has no parent
         root_id = self._root_id()
@@ -236,12 +246,12 @@ class Bonsai:
             for i, child in enumerate(children):
                 left_sibling_id = children[i - 1].id if i > 0 else None
                 right_sibling_id = children[i + 1].id if i < len(children) - 1 else None
-                child_has_children = child.id in self._parent_id_to_children and self._parent_id_to_children[child.id]
-                first_child_id = self._parent_id_to_children[child.id][0].id if child_has_children else None
+                children_of_child = self._parent_id_to_children.get(child.id)
+                first_child_id = children_of_child[0].id if children_of_child else None
                 nodes.add(
                     WalkerNode(
                         node_id=child.id,
-                        is_leaf=child.is_leaf,
+                        is_leaf=child._is_leaf,
                         left_sibling_id=left_sibling_id,
                         right_sibling_id=right_sibling_id,
                         parent_id=parent_id,
