@@ -52,23 +52,39 @@ class Bonsai:
         """
         return list(self._b_node_set.values())
 
-    def add_leaf(self, node: InputNode):
+    def add_leaf(self, node_id: str, parent_id: str):
         """
         Adds a node to the tree as a new leaf node to the parent specified in the input. Once added,
         the tree is repositioned to ensure correct spacing. A small optimization could be to more
         minimally reposition the tree when the new node sits on the far left or right edges of the
         tree but does not seem worth the special-casing complexity at the moment.
+        Note: the new leaf is always added to the right of all existing siblings.
         """
-        if node in self._parent_id_to_children[node.parent_id]:
-            raise ValueError("Node already exists in tree")
+        rightmost_sibling_x = 0
+        for sibling in self._parent_id_to_children[parent_id]:
+            rightmost_sibling_x = max(rightmost_sibling_x, sibling.x)
+            if sibling.id == node_id:
+                raise ValueError("Node already exists in tree")
 
-        #TODO: reconsider input type if only leaf nodes are allowed instead of
-        # doing this check. Could potentially simplify input to just be flat
-        # fields and default to MAX_BIG_INT for x value here or allow for specification
-        # of adding a left or right leaf.
-        if not node.is_leaf:
-            raise ValueError("input must be a leaf i.e. have is_leaf=True")
-        self._parent_id_to_children[node.parent_id].append(node)
+        new_leaf = InputNode(
+            id=node_id,
+            parent_id=parent_id,
+            is_leaf=True,
+            x=rightmost_sibling_x + 1,
+        )
+        
+        # Update tree data structures
+        self._parent_id_to_children[parent_id].append(new_leaf)
+        self._b_node_set[new_leaf.id] = Node(id=new_leaf.id, pos=Point(new_leaf.x, 0))
+        
+        # Ensure parent is no longer a leaf node
+        # TODO: this should be refactored with other location and optimized
+        for grandparent_id, nodes in self._parent_id_to_children.items():
+            for i, node in enumerate(nodes):
+                if node.id == parent_id:
+                    self._parent_id_to_children[grandparent_id][i].is_leaf = False
+                    break
+        
         self._reposition()
 
     def prune(self, node_id: str, node_parent_id: str):
@@ -132,11 +148,11 @@ class Bonsai:
     def _root_id(self):
         # TODO: if we already have the root ID in Walker Tree, we could use that
         
-        # Collect all children in a set
-        child_ids = set(str(child.id) for children in self._parent_id_to_children.values() for child in children)
+        # Collect all children into a set
+        child_ids = set(c.id for children in self._parent_id_to_children.values() for c in children)
 
         # Identify potential root IDs i.e. those not in children set
-        root_ids = [str(id) for id in self._parent_id_to_children if str(id) not in child_ids and id is not None]
+        root_ids = [id for id in self._parent_id_to_children if id not in child_ids]
 
         # Error handling based on the number of potential roots
         if len(root_ids) == 1:
