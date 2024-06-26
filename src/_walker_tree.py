@@ -494,7 +494,3 @@ class WalkerTree:
 
         node = self._get_node(node_id)
         return node.point
-
-    def get_all_node_ids(self) -> Set[str]:
-        """This method returns a set of all node IDs in the Walker Tree."""
-        return set(self._internal_node_dict.keys())
