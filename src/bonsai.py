@@ -1,8 +1,9 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import DefaultDict, List, Tuple
+from typing import DefaultDict, List, Optional, Tuple
 
 from ._walker_tree import WalkerTree, WalkerNode, Point
+from .exceptions import *
 
 
 @dataclass
@@ -18,14 +19,37 @@ class Node:
     id: str
     pos: Point
 
+    
+@dataclass(frozen=True)
+class Config:
+    """
+    Configuration class for Bonsai tree positioning.
+    The unit for all values should be roughly equatable to pixels when it comes
+    to rendering the tree in a web application. The default values are based on
+    the original application use-case and your mileage may vary.
+
+    Attributes:
+        sibling_separation (int): The separation between sibling nodes.
+        subtree_separation (int): The separation between subtrees.
+        level_separation (int): The separation between levels of the tree.
+        max_depth (int): The maximum depth of the tree.
+        node_size (int): The size (width) of each node in the tree.
+    """
+    sibling_separation: int = 50
+    subtree_separation: int = 100
+    level_separation: int = 275
+    max_depth: int = 100
+    node_size: int = 250
+
 
 class Bonsai:
     # The input is a dict of Parent Node ID to the list of child nodes,
     # where each child node is an instance of 'InputNode'.
-    def __init__(self, tree: DefaultDict[str, List[InputNode]]):
+    def __init__(self, tree: DefaultDict[str, List[InputNode]], config: Config = Config()):
         # _parent_id_to_children: main tree structure for tracking tree state
         self._parent_id_to_children = tree
         # _w_tree: instance of 'Walker Tree' built from our main tree
+        self._w_tree_config = config
         self._w_tree = self._new_walker_tree()
         self._w_tree.position_tree()
         # _b_node_set: dictionary of ID to node for all nodes in tree, useful for quick lookups or
@@ -77,13 +101,9 @@ class Bonsai:
         self._parent_id_to_children[parent_id].append(new_leaf)
         self._b_node_set[new_leaf.id] = Node(id=new_leaf.id, pos=Point(new_leaf.x, 0))
         
-        # Ensure parent is no longer a leaf node
-        # TODO: this should be refactored with other location and optimized
-        for grandparent_id, nodes in self._parent_id_to_children.items():
-            for i, node in enumerate(nodes):
-                if node.id == parent_id:
-                    self._parent_id_to_children[grandparent_id][i].is_leaf = False
-                    break
+        # Since we've added a leaf, we need to make sure to update the parent
+        # node as no longer being a leaf node.
+        self._update_is_leaf(parent_id, False)
         
         self._reposition()
 
@@ -104,22 +124,30 @@ class Bonsai:
                     queue.append((child.id, node_id))
             self._delete_node(node_id, node_parent_id)
             
-        # Re-evaluate whether the deleted node's parent is now a leaf node
+        # Re-evaluate whether the deleted node's parent is now a leaf node, which
+        # is true if it has no children left.
         if len(self._parent_id_to_children[node_parent_id]) == 0:
-            # Traverse until you find the node_parent_id and update is_leaf
-            for grandparent_id, nodes in self._parent_id_to_children.items():
-                for i, node in enumerate(nodes):
-                    if node.id == node_parent_id:
-                        self._parent_id_to_children[grandparent_id][i].is_leaf = True
-                        break
-            # Remove parent key as it is no longer a parent but only if its not
-            # the root node. TODO: perhaps this can be modeled better to avoid
-            # root node special casing.
+            self._update_is_leaf(node_parent_id, True)
+            # Remove parent key from our main structure as it is no longer a
+            # parent if it has no children but ignore it if it's the root node.
+            # The root node must stay in order to not pass an empty tree
+            # structure downstream as that is invalid since there should be no
+            # valid use-case for a tree with no nodes.
             if node_parent_id != self._w_tree.root_id():
                 del self._parent_id_to_children[node_parent_id]
                 
         # Reposition the tree after all subtree nodes have been deleted
         self._reposition()
+        
+    def _update_is_leaf(self, node_id: str, is_leaf: bool):
+        """
+        Update the 'is_leaf' attribute of a node in the tree.
+        """
+        for parent_id, children in self._parent_id_to_children.items():
+            for i, child in enumerate(children):
+                if child.id == node_id:
+                    self._parent_id_to_children[parent_id][i].is_leaf = is_leaf
+                    return
         
     def _delete_node(self, node_id: str, node_parent_id: str):
         """
@@ -146,7 +174,10 @@ class Bonsai:
         return not self._parent_id_to_children[self._root_id()]
 
     def _root_id(self):
-        # TODO: if we already have the root ID in Walker Tree, we could use that
+        try:
+            return self._w_tree.root_id()
+        except UnidentifiedRootNode:
+            pass
         
         # Collect all children into a set
         child_ids = set(c.id for children in self._parent_id_to_children.values() for c in children)
@@ -169,13 +200,13 @@ class Bonsai:
     # repositioning but it seems non-trivial
     def _new_walker_tree(self) -> WalkerTree:
         # Configure node-positioning tree
-        # TODO: make these parameters configurable
+        conf = self._w_tree_config
         w_tree = WalkerTree(
-            sibling_separation=50,
-            subtree_separation=100,
-            level_separation=275,
-            max_depth=100,
-            node_size=250,
+            sibling_separation=conf.sibling_separation,
+            subtree_separation=conf.subtree_separation,
+            level_separation=conf.level_separation,
+            max_depth=conf.max_depth,
+            node_size=conf.node_size,
         )
         if not self._parent_id_to_children:
             return w_tree

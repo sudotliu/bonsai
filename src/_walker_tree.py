@@ -134,7 +134,7 @@ class WalkerTree:
         exception if not set.
         """
         if not self._root_id:
-            raise exceptions.InvalidTree("no root node identified")
+            raise exceptions.UnidentifiedRootNode("walker tree root node id not set")
         
         return self._root_id
 
@@ -461,10 +461,10 @@ class WalkerTree:
             raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
 
         if not self._root_id:
-            raise exceptions.InvalidTree("no root node identified")
+            raise exceptions.UnidentifiedRootNode("must have root node id before positioning")
         root = self._get_node(self._root_id)
         if not root:
-            raise exceptions.InvalidTree("no root node found")
+            raise exceptions.InvalidTree("must have root node before positioning")
 
         self._init_prev_node_list()
 
