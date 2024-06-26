@@ -1,5 +1,3 @@
-
-
 from collections import defaultdict
 
 from src.bonsai import Bonsai, InputNode

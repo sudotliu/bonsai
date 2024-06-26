@@ -1,5 +1,5 @@
 import pytest
-from src.walker_tree import WalkerTree
+from app.walker_tree.src._walker_tree import WalkerTree
 
 def test_valid_configuration():
     tree = WalkerTree(
