@@ -50,7 +50,7 @@ class Bonsai:
         self._parent_id_to_children = tree
         # _w_tree: instance of 'Walker Tree' built from our main tree
         self._w_tree_config = config
-        self._w_tree = self._new_walker_tree()
+        self._w_tree_setup()
         self._w_tree.position_tree()
         # _b_node_set: dictionary of ID to node for all nodes in tree, useful for quick lookups or
         # composing a flat list of nodes with position data.
@@ -65,7 +65,7 @@ class Bonsai:
     # - Repositioning the 'Walker Tree' nodes
     # - Updating the positions of all Bonsai nodes
     def _reposition(self):
-        self._w_tree = self._new_walker_tree()
+        self._w_tree_setup()
         self._w_tree.position_tree()
         for b_node in self._b_node_set.values():
             self._b_node_set[b_node.id].pos = self._w_tree.get_position(b_node.id)
@@ -175,7 +175,8 @@ class Bonsai:
 
     def _root_id(self):
         try:
-            return self._w_tree.root_id()
+            if self._w_tree:
+                return self._w_tree.root_id()
         except UnidentifiedRootNode:
             pass
         
@@ -193,15 +194,16 @@ class Bonsai:
         else:
             raise ValueError("Invalid tree input: no root node found")
 
-    # This does most of the heavy lifting in terms of constructing the 'WalkerTree'
-    # which is used to calculate new positions of the nodes in the tree.
-    # The tree is always repositioned in this call before being returned.
-    # NOTE: for improved performance, we might be able to avoid always
-    # repositioning but it seems non-trivial
-    def _new_walker_tree(self) -> WalkerTree:
+    # This does most of the heavy lifting in terms of setting up the 'WalkerTree' which is used to
+    # calculate new positions of the nodes in the tree. Note that the underlying 'WalkerTree' is
+    # always created fresh here and saved into the instance variable '_w_tree'. For optimal
+    # performance, we could potentially squash the layers to avoid always creating a brand new inner
+    # tree, but that seems rather non-trivial and blends the concerns of the core algorithm with
+    # the API and outer layer tree structure.
+    def _w_tree_setup(self):
         # Configure node-positioning tree
         conf = self._w_tree_config
-        w_tree = WalkerTree(
+        self._w_tree = WalkerTree(
             sibling_separation=conf.sibling_separation,
             subtree_separation=conf.subtree_separation,
             level_separation=conf.level_separation,
@@ -209,7 +211,7 @@ class Bonsai:
             node_size=conf.node_size,
         )
         if not self._parent_id_to_children:
-            return w_tree
+            return
 
         # Sort children of each parent node by x-coordinate
         for parent_id, children in self._parent_id_to_children.items():
@@ -247,6 +249,5 @@ class Bonsai:
                     )
                 )
 
-        w_tree.populate_tree(nodes)
+        self._w_tree.populate_tree(nodes)
 
-        return w_tree
