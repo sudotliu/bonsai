@@ -1,9 +1,12 @@
-from collections import defaultdict
+import logging
 from dataclasses import dataclass
-from typing import DefaultDict, List, Optional, Tuple
+from typing import DefaultDict, List, Tuple
 
 from ._walker_tree import WalkerTree, WalkerNode, Point
 from .exceptions import *
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -54,12 +57,18 @@ class Bonsai:
     def __init__(self, tree: DefaultDict[str, List[Node]], config: Config = Config()):
         # _parent_id_to_children: main tree structure for tracking tree state
         self._parent_id_to_children = tree
+        self._validate()
         # Mark all leaf nodes in the tree
         self._mark_leaves()
         # _w_tree: instance of 'Walker Tree' built from our main tree
         self._w_tree_config = config
         self._w_tree_setup()
         self._w_tree.position_tree()
+        
+    def _validate(self):
+        for p_id in self._parent_id_to_children.keys():
+            if type(p_id) != str:
+                raise ValueError("Node IDs must be strings")
         
     # Repositioning the 'Bonsai' tree covers all the high-level repeat work
     # needed each time the tree is updated, which includes:
@@ -75,9 +84,8 @@ class Bonsai:
         """
         Return a simple list of all tree nodes with minimal data required for positioning.
         """
-        # FIXME: return list from main tree structure
         nodes: List[Node] = []
-        # Build up list of all nodes in the tree into Node types while getting position from walker tree
+        # Build up list of all Node types with positions from walker tree
         for parent_id, children in self._parent_id_to_children.items():
             pos = self._w_tree.get_position(parent_id)
             nodes.append(Node(id=parent_id, pos=pos, _is_leaf=False))
@@ -100,20 +108,18 @@ class Bonsai:
             rightmost_sibling_x = max(rightmost_sibling_x, sibling.pos.x)
             if sibling.id == node_id:
                 raise ValueError("Node already exists in tree")
-
-        new_leaf = Node(
-            id=node_id,
-            pos=Point(rightmost_sibling_x + 1, 0),
-            _is_leaf=True,
-        )
         
         # Update tree data structures
-        self._parent_id_to_children[parent_id].append(new_leaf)
-        
+        self._parent_id_to_children[parent_id].append(
+            Node(
+                id=node_id,
+                pos=Point(rightmost_sibling_x + 1, 0),
+                _is_leaf=True,
+            )
+        )
         # Since we've added a leaf, we need to make sure to update the parent
         # node as no longer being a leaf node.
         self._update_is_leaf(parent_id, False)
-        
         self._reposition()
 
     def prune(self, node_id: str, node_parent_id: str):
@@ -127,11 +133,10 @@ class Bonsai:
         # and add its children to queue before deleting that node from all structures.
         queue: List[Tuple[str, str]] = [(node_id, node_parent_id)]
         while queue:
-            node_id, node_parent_id = queue.pop(0)
-            if node_id in self._parent_id_to_children:
-                for child in self._parent_id_to_children[node_id]:
-                    queue.append((child.id, node_id))
-            self._delete_node(node_id, node_parent_id)
+            n_id, p_id = queue.pop(0)
+            for child in self._parent_id_to_children[n_id]:
+                queue.append((child.id, n_id))
+            self._delete_node(n_id, p_id)
             
         # Re-evaluate whether the deleted node's parent is now a leaf node, which
         # is true if it has no children left.
@@ -200,6 +205,7 @@ class Bonsai:
         if len(root_ids) == 1:
             return root_ids[0]
         elif len(root_ids) > 1:
+            log.error("Multiple root nodes found in tree: %s", root_ids)
             raise ValueError("Invalid tree input: multiple root nodes found")
         else:
             raise ValueError("Invalid tree input: no root node found")
@@ -260,4 +266,3 @@ class Bonsai:
                 )
 
         self._w_tree.populate_tree(nodes)
-
