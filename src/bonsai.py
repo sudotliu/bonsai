@@ -171,32 +171,32 @@ class Bonsai:
         # Add root node first as a special case since it has no parent
         root_id = self._root_id()
         root_children = self._parent_id_to_children[root_id]
-        root_first_child = root_children[0].id if root_children else None
+        root_first_child_id = root_children[0].id if root_children else None
         nodes = {
             WalkerNode(
                 node_id=root_id,
                 is_leaf=self._root_is_leaf(),
-                left_sibling=None,
-                right_sibling=None,
+                left_sibling_id=None,
+                right_sibling_id=None,
                 parent_id=None,
-                first_child=root_first_child,
+                first_child_id=root_first_child_id,
             )
         }
         # Build up Walker Tree using nodes augmented with "family" metadata
         for parent_id, children in self._parent_id_to_children.items():
             for i, child in enumerate(children):
-                left_sibling = children[i - 1].id if i > 0 else None
-                right_sibling = children[i + 1].id if i < len(children) - 1 else None
+                left_sibling_id = children[i - 1].id if i > 0 else None
+                right_sibling_id = children[i + 1].id if i < len(children) - 1 else None
                 child_has_children = child.id in self._parent_id_to_children and self._parent_id_to_children[child.id]
-                first_child = self._parent_id_to_children[child.id][0].id if child_has_children else None
+                first_child_id = self._parent_id_to_children[child.id][0].id if child_has_children else None
                 nodes.add(
                     WalkerNode(
                         node_id=child.id,
                         is_leaf=child.is_leaf,
-                        left_sibling=left_sibling,
-                        right_sibling=right_sibling,
+                        left_sibling_id=left_sibling_id,
+                        right_sibling_id=right_sibling_id,
                         parent_id=parent_id,
-                        first_child=first_child,
+                        first_child_id=first_child_id,
                     )
                 )
 

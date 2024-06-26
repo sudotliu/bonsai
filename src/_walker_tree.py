@@ -24,32 +24,37 @@ class WalkerNode:
     Args:
         node_id: unique string identifier of the node
         is_leaf: boolean indicating whether this node is a leaf node i.e. does not have children
-        left_sibling: ID of the node (with same parent) immediately to the left of this node, if any
-        right_sibling: ID of the node (with same parent) immediately to the right of this node, if any
+        left_sibling_id: ID of the node (with same parent) immediately to the left of this node, if any
+        right_sibling_id: ID of the node (with same parent) immediately to the right of this node, if any
         parent_id: ID of the parent node, if any
-        first_child: ID of the leftmost child of this node, if any
+        first_child_id: ID of the leftmost child of this node, if any
     """
     def __init__(
         self,
         node_id: str,
         is_leaf: bool,
-        left_sibling: Optional[str],
-        right_sibling: Optional[str],
+        left_sibling_id: Optional[str],
+        right_sibling_id: Optional[str],
         parent_id: Optional[str],
-        first_child: Optional[str],
+        first_child_id: Optional[str],
     ):
         self.id = node_id
         self.is_leaf = is_leaf
-        self.left_sibling = left_sibling
-        self.right_sibling = right_sibling
+        self.left_sibling_id = left_sibling_id
+        self.right_sibling_id = right_sibling_id
         self.parent_id = parent_id
-        self.first_child = first_child
+        self.first_child_id = first_child_id
 
 
 class _InternalNode(WalkerNode):
     def __init__(self, node):
         super().__init__(
-            node.id, node.is_leaf, node.left_sibling, node.right_sibling, node.parent_id, node.first_child
+            node.id,
+            node.is_leaf,
+            node.left_sibling_id,
+            node.right_sibling_id,
+            node.parent_id,
+            node.first_child_id
         )
 
         # The current node's preliminary x-coordinate
@@ -62,7 +67,7 @@ class _InternalNode(WalkerNode):
         self.point = Point(0, 0)
 
     def has_child(self):
-        return not self.is_leaf and self.first_child is not None
+        return not self.is_leaf and self.first_child_id is not None
 
     def __str__(self):
         left_neighbor_id = self.left_neighbor and self.left_neighbor.id
@@ -163,11 +168,11 @@ class WalkerTree:
         elif node.is_leaf:
             return None
         else:
-            right_most = self._get_node(node.first_child)
+            right_most = self._get_node(node.first_child_id)
             left_most = self._get_leftmost(right_most, level + 1, depth)
             # Do a postorder walk of the subtree below node
-            while not left_most and right_most.right_sibling:
-                right_most = self._get_node(right_most.right_sibling)
+            while not left_most and right_most.right_sibling_id:
+                right_most = self._get_node(right_most.right_sibling_id)
                 left_most = self._get_leftmost(right_most, level + 1, depth)
             return left_most
 
@@ -181,7 +186,7 @@ class WalkerTree:
         aesthetic placement.
         """
         log.debug("Apportion node: {}, level: {}".format(node, level))
-        left_most = self._get_node(node.first_child)
+        left_most = self._get_node(node.first_child_id)
         neighbor = left_most.left_neighbor
         compare_depth = 1
         depth_to_stop = self.max_depth - level
@@ -193,10 +198,12 @@ class WalkerTree:
             ancestor_left_most = left_most
             ancestor_neighbor = neighbor
             for i in range(compare_depth):
-                ancestor_left_most = self._get_node(ancestor_left_most.parent_id)
-                ancestor_neighbor = self._get_node(ancestor_neighbor.parent_id)
-                right_mod_sum += ancestor_left_most.modifier
-                left_mod_sum += ancestor_neighbor.modifier
+                if ancestor_left_most.parent_id:
+                    ancestor_left_most = self._get_node(ancestor_left_most.parent_id)
+                    right_mod_sum += ancestor_left_most.modifier
+                if ancestor_neighbor.parent_id:
+                    ancestor_neighbor = self._get_node(ancestor_neighbor.parent_id)
+                    left_mod_sum += ancestor_neighbor.modifier
             # Find the move distance and apply it to node's sub-tree
             # Add appropriate portions to smaller interior sub-trees
             move_distance = (neighbor.prelim + left_mod_sum + self.subtree_separation + self.node_size) - (
@@ -219,19 +226,19 @@ class WalkerTree:
                 left_siblings = 0
                 while tmp and tmp != ancestor_neighbor:
                     left_siblings += 1
-                    tmp = self._get_node(tmp.left_sibling)
+                    tmp = self._get_node(tmp.left_sibling_id) if tmp.left_sibling_id else None
                 if tmp:
                     # Apply portions to appropriate left sibling sub-trees
                     portion = move_distance / left_siblings
                     tmp = node
                     # NB: this line is wrong in the original paper as it is missing the negation
                     # and without it, the move distances are not applied correctly to all subtrees.
-                    while tmp != ancestor_neighbor:
+                    while tmp and tmp != ancestor_neighbor:
                         log.debug("Applying move distance: {} to node: {}".format(move_distance, tmp))
                         tmp.prelim += move_distance
                         tmp.modifier += move_distance
                         move_distance -= portion
-                        tmp = self._get_node(tmp.left_sibling)
+                        tmp = self._get_node(tmp.left_sibling_id) if tmp.left_sibling_id else None
                 else:
                     # No need to move anything
                     # Needs to be done by an ancestor b/c ancestor neighbor and leftmost are not siblings
@@ -243,7 +250,7 @@ class WalkerTree:
             if left_most.is_leaf:
                 left_most = self._get_leftmost(node, 0, compare_depth)
             else:
-                left_most = self._get_node(left_most.first_child)
+                left_most = self._get_node(left_most.first_child_id) if left_most.first_child_id else None
 
             # NB: the original paper does not specify updating the neighbor, but this is
             # absolutely necessary to ensure that the neighbor stays in sync level-wise with
@@ -331,22 +338,22 @@ class WalkerTree:
         node.modifier = 0
         log.debug("First walk, node: {}".format(node))
         if node.is_leaf or level == self.max_depth:
-            if node.left_sibling:
+            if node.left_sibling_id:
                 # Determine the preliminary x-coordinate
-                node.prelim = self._get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
+                node.prelim = self._get_node(node.left_sibling_id).prelim + self.sibling_separation + self.node_size
             else:
                 # No sibling on left to worry about
                 node.prelim = 0
         else:
             # This node is not a leaf, so call this recursively for each of its offspring
-            left_most = right_most = self._get_node(node.first_child)
+            left_most = right_most = self._get_node(node.first_child_id)
             self._first_walk(left_most, level + 1)
-            while right_most.right_sibling:
-                right_most = self._get_node(right_most.right_sibling)
+            while right_most.right_sibling_id:
+                right_most = self._get_node(right_most.right_sibling_id)
                 self._first_walk(right_most, level + 1)
             midpoint = (left_most.prelim + right_most.prelim) / 2
-            if node.left_sibling:
-                node.prelim = self._get_node(node.left_sibling).prelim + self.sibling_separation + self.node_size
+            if node.left_sibling_id:
+                node.prelim = self._get_node(node.left_sibling_id).prelim + self.sibling_separation + self.node_size
                 node.modifier = node.prelim - midpoint
                 self._apportion(node, level)
             else:
@@ -375,16 +382,16 @@ class WalkerTree:
 
         log.debug("Second walk, node: {}".format(node))
         node.point = Point(x_tmp, y_tmp)
-        if node.has_child():
+        if node.first_child_id:
             # Apply the modifier value to all offspring
-            self._second_walk(self._get_node(node.first_child), level + 1, mod_sum + node.modifier)
-        if node.right_sibling:
-            self._second_walk(self._get_node(node.right_sibling), level, mod_sum)
+            self._second_walk(self._get_node(node.first_child_id), level + 1, mod_sum + node.modifier)
+        if node.right_sibling_id:
+            self._second_walk(self._get_node(node.right_sibling_id), level, mod_sum)
         return
 
-    def _get_node(self, node_id: str) -> Optional[_InternalNode]:
+    def _get_node(self, node_id: str) -> _InternalNode:
         if not node_id:
-            return None
+            raise ValueError("must provide node ID")
         if node_id not in self._internal_node_dict:
             raise exceptions.NodeDoesNotExist("node ID: {}".format(node_id))
         return self._internal_node_dict[node_id]
@@ -392,10 +399,8 @@ class WalkerTree:
     def _validate_tree(self):
         orphan_node_ids = []
         for _, node in self._internal_node_dict.items():
-            if node.is_leaf and node.first_child:
-                raise exceptions.InvalidTree("leaf node: {} has first child: {}".format(node.id, node.first_child))
-            if node.has_child() and not node.first_child:
-                raise exceptions.InvalidTree("parent node must have child: {}".format(node.id))
+            if node.is_leaf and node.first_child_id:
+                raise exceptions.InvalidTree("leaf node: {} has first child: {}".format(node.id, node.first_child_id))
             if node.parent_id is None:
                 orphan_node_ids.append(node.id)
 
@@ -404,28 +409,28 @@ class WalkerTree:
                 raise exceptions.InvalidTree("node ID not in tree: {}".format(node.id))
             if node.parent_id and node.parent_id not in self._internal_node_dict:
                 raise exceptions.InvalidTree("parent ID {} not in tree for node: {}".format(node.parent_id, node.id))
-            if node.left_sibling and node.left_sibling not in self._internal_node_dict:
-                raise exceptions.InvalidTree("left sibling ID {} not in tree for node: {}".format(node.left_sibling, node.id))
-            if node.right_sibling and node.right_sibling not in self._internal_node_dict:
-                raise exceptions.InvalidTree("right sibling ID {} not in tree for node: {}".format(node.right_sibling, node.id))
-            if node.first_child and node.first_child not in self._internal_node_dict:
-                raise exceptions.InvalidTree("first child ID {} not in tree for node: {}".format(node.first_child, node.id))
+            if node.left_sibling_id and node.left_sibling_id not in self._internal_node_dict:
+                raise exceptions.InvalidTree("left sibling ID {} not in tree for node: {}".format(node.left_sibling_id, node.id))
+            if node.right_sibling_id and node.right_sibling_id not in self._internal_node_dict:
+                raise exceptions.InvalidTree("right sibling ID {} not in tree for node: {}".format(node.right_sibling_id, node.id))
+            if node.first_child_id and node.first_child_id not in self._internal_node_dict:
+                raise exceptions.InvalidTree("first child ID {} not in tree for node: {}".format(node.first_child_id, node.id))
 
             # Ensure siblings are consistent
-            if node.left_sibling:
-                left_sibling = self._internal_node_dict[node.left_sibling]
-                lefts_right = left_sibling.right_sibling
+            if node.left_sibling_id:
+                left_sibling = self._internal_node_dict[node.left_sibling_id]
+                lefts_right = left_sibling.right_sibling_id
                 if lefts_right != node.id:
                     raise exceptions.InvalidTree("left sibling discrepancy: {} != {}".format(lefts_right, node.id))
-            if node.right_sibling:
-                right_sibling = self._internal_node_dict[node.right_sibling]
-                rights_left = right_sibling.left_sibling
+            if node.right_sibling_id:
+                right_sibling = self._internal_node_dict[node.right_sibling_id]
+                rights_left = right_sibling.left_sibling_id
                 if rights_left != node.id:
                     raise exceptions.InvalidTree("right sibling discrepancy: {} != {}".format(rights_left, node.id))
 
             # Ensure parent child is consistent
-            if node.has_child():
-                first_child = self._internal_node_dict[node.first_child]
+            if node.first_child_id:
+                first_child = self._internal_node_dict[node.first_child_id]
                 if first_child.parent_id != node.id:
                     raise exceptions.InvalidTree("first child discrepancy: {}".format(node.id))
 
@@ -455,6 +460,8 @@ class WalkerTree:
         if len(self._internal_node_dict) == 0:
             raise exceptions.InvalidTree("empty tree; tree must be populated before positioning")
 
+        if not self._root_id:
+            raise exceptions.InvalidTree("no root node identified")
         root = self._get_node(self._root_id)
         if not root:
             raise exceptions.InvalidTree("no root node found")
