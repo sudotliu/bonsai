@@ -1,20 +1,29 @@
 # Bonsai
 
-## Walker Node Positioning Algorithm (in Python)
-
 Bonsai is a tree positioning utility that can compute coordinates for all nodes in a given tree such
 that they are neatly and evenly spaced out when displayed visually. The original use-case was to
-enable recomputing the node positions for a dynamic tree to be rendered in a web application, so
-anything similar may benefit from this. Pretty much anything that involves displaying a tree
-structure that changes in shape often enough to make it cumbersome to reposition or balance by hand.
+enable recomputing the node positions for a dynamic tree to be rendered in a web application.
+Essentially, any application that involves displaying a tree structure may benefit, but especially
+those cases in which the tree changes in shape often enough to make it cumbersome to reposition or
+balance by hand.
 
-Here is an example image of the original use-case:
+Note that this project is only the backend algorithm used for position calculations and it does not
+handle anything to do with displaying the tree other than providing coordinates as output.
+Nonetheless, it may be easier to grok with a visual example, so here is a screenshot of how the first
+use-case looked when rendered:
+
 ![Bonsai Metric Tree Example](bonsai_example_big.png)
 
-The core of this project is a Python implementation of John Q. Walker II's node-positioning
-algorithm for general trees with some adjustments, additional methods, and wrapper layers to provide
-a better user interface. It is a recursive algorithm but for reasonably-sized trees, node placements
-are recalculated quickly enough to support instant re-rendering of the tree upon adding or removing
+I will link to a blog post about this project here later, and we may decide to release the full original
+project under an open source license as well some day.
+
+
+## Walker Node Positioning Algorithm
+
+The core of this project is an implementation of John Q. Walker II's node-positioning algorithm for
+general trees with some adjustments, additional methods, and wrapper layers to provide a better user
+interface. It is a recursive algorithm but for reasonably-sized trees, node placements are
+recalculated quickly enough to support instant re-rendering of the tree upon adding or removing
 nodes.
 
 Included is the original report that describes the algorithm, provided by the University of North
