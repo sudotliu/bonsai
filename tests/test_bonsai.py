@@ -2,7 +2,7 @@ import pytest
 from typing import DefaultDict, List
 from collections import defaultdict
 
-from bonsai.bonsai import Bonsai, Node, Point
+from .context import Node, Point, Bonsai
 
 
 def test_bonsai_initialization():

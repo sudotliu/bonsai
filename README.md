@@ -13,7 +13,7 @@ handle anything to do with displaying the tree other than providing coordinates 
 Nonetheless, it may be easier to grok with a visual example, so below is a screenshot of how the first
 use-case looked when rendered.
 
-![Bonsai Metric Tree Example](bonsai_example.png)
+![Bonsai Metric Tree Example](docs/bonsai_example.png)
 
 ## Walker Node Positioning Algorithm
 
@@ -25,7 +25,7 @@ nodes.
 
 Included is the original report that describes the algorithm, provided by the University of North
 Carolina:\
-<a href="89-034.pdf" target="_blank">A Node-Positioning Algorithm for General Trees</a>
+<a href="docs/89-034.pdf" target="_blank">A Node-Positioning Algorithm for General Trees</a>
 
 Note: there are select comments marked specifically with `NB` (nota bene), which call to attention
 parts of the algorithm that differ from the original specification because something did not work as
