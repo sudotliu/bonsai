@@ -9,6 +9,7 @@ __all__ = [
     "TreeOutOfCoordinateRange",
     "MaxDepthExceeded",
     "UnidentifiedRootNode",
+    "CannotPruneRoot",
 ]
 
 class InvalidTreeConfiguration(Exception):
@@ -28,3 +29,7 @@ class TreeOutOfCoordinateRange(Exception):
 
 class MaxDepthExceeded(Exception):
     """Raised tree level being positioned has exceeded the configured max depth """
+
+class CannotPruneRoot(Exception):
+    """Raised when trying to prune the root node of the tree"""
+ 

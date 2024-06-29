@@ -124,12 +124,19 @@ class Bonsai:
         self._update_is_leaf(parent_id, False)
         self._reposition()
 
-    def prune(self, node_id: str, node_parent_id: str):
+    def prune(self, node_id: str):
         """
         Removes a given tree node from the tree along with its entire subtree before repositioning
         the tree. This is a little less trivial than it sounds due to the care needed to ensure that
         all internal data structures are updated correctly prior to repositioning.
         """
+        # Ensure we're not trying to prune the root node
+        if node_id == self._root_id():
+            raise CannotPruneRoot("Cannot prune root node")
+        
+        # Find parent ID
+        node_parent_id = self._find_parent_id(node_id)
+        
         # Starting from the node to be deleted, queue up all children to be deleted
         # in a breadth-first manner. While queue is not empty, pop the first element
         # and add its children to queue before deleting that node from all structures.
@@ -154,6 +161,13 @@ class Bonsai:
                 
         # Reposition the tree after all subtree nodes have been deleted
         self._reposition()
+        
+    def _find_parent_id(self, node_id: str) -> str:
+        for parent_id, children in self._parent_id_to_children.items():
+            for child in children:
+                if child.id == node_id:
+                    return parent_id
+        raise InvalidTree("No parent ID found for node ID: %s" % node_id)
         
     def _mark_leaves(self):
         for children in self._parent_id_to_children.values():
