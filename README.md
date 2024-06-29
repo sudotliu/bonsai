@@ -13,7 +13,7 @@ handle anything to do with displaying the tree other than providing coordinates 
 Nonetheless, it may be easier to grok with a visual example, so below is a screenshot of how the first
 use-case looked when rendered.
 
-![Bonsai Metric Tree Example](bonsai_example_big.png)
+![Bonsai Metric Tree Example](bonsai_example.png)
 
 ## Walker Node Positioning Algorithm
 

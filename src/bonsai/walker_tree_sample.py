@@ -1,6 +1,6 @@
 import logging
 
-from src._walker_tree import WalkerTree, WalkerNode
+from _walker_tree import WalkerTree, WalkerNode
 
 logging.basicConfig(level=logging.DEBUG)
 

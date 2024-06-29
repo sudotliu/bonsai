@@ -88,10 +88,12 @@ class Bonsai:
         # Build up list of all Node types with positions from walker tree
         for parent_id, children in self._parent_id_to_children.items():
             pos = self._w_tree.get_position(parent_id)
-            nodes.append(Node(id=parent_id, pos=pos, _is_leaf=False))
+            p_node = Node(id=parent_id, pos=pos, _is_leaf=False)
+            nodes.append(p_node) if p_node not in nodes else None
             for child in children:
                 pos = self._w_tree.get_position(child.id)
-                nodes.append(Node(id=child.id, pos=pos, _is_leaf=child._is_leaf))
+                c_node = Node(id=child.id, pos=pos, _is_leaf=child._is_leaf)
+                nodes.append(c_node) if c_node not in nodes else None
             
         return nodes
 
